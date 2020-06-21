@@ -10,6 +10,9 @@ from keras.layers.recurrent import LSTM
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
 from sklearn.metrics import mean_squared_error
+import time
+import statistics
+
 
 
 np.random.seed(0) #乱数の固定
@@ -32,9 +35,7 @@ affect_length = 64
 def make_dataset(y, affect_length):
   factors = np.array([[]])
   answers = np.array([])
-  # print(y[0:0+affect_length].shape)
   for i in range(len(y) - affect_length):
-    # print(y[i:i+affect_length])
     factors = np.append(factors,y[i:i+affect_length])
     answers = np.append(answers,y[i+affect_length])
 
@@ -418,7 +419,127 @@ def rnn_test(learning_rate=0.01,affect_length=2,activation="hard_sigmoid",epochs
   plt.legend(loc='upper right', ncol=2)
   plt.show()
 
-rnn_test()
+# rnn_test()
 
 
 
+# 50回試行して、RMSEの平均・標準偏差を求める。
+
+def rnn_test(learning_rate=0.01,affect_length=2,activation='hard_sigmoid',epochs=2000,loss_func='mean_squared_error',num_neurons=1, n_hidden=20,batch_size=32,patience=300,validation_split=0.05,loop_count=50):
+  time_to_learn = np.zeros(loop_count)
+  all_rmse = np.zeros(loop_count)
+
+
+  for i in range(loop_count):
+    (factors, answers) = make_dataset(y, affect_length)
+    factors = np.array(factors).reshape(-1, affect_length, 1)
+    model = Sequential()
+    model.add(SimpleRNN(n_hidden, batch_input_shape=(None, affect_length, num_neurons), return_sequences=False))
+    model.add(Dense(num_neurons))
+    model.add(Activation(activation))
+    optimizer = Adam(lr = learning_rate)
+    model.compile(loss=loss_func, optimizer=optimizer)
+    early_stopping = EarlyStopping(monitor='val_loss', mode='auto', patience=patience)
+    start = time.time()
+    model.fit(factors, answers, batch_size=batch_size, epochs=epochs, validation_split=validation_split,callbacks= [])
+    elapsed_time = time.time() - start
+    time_to_learn[i] = elapsed_time
+    pred = model.predict(factors)
+    y_true = y[affect_length:]
+    y_pred = pred.reshape(-1)
+    all_rmse[i] = rmse(y_true[-25:],y_pred[-25:])
+
+  return time_to_learn, all_rmse
+
+def learning_rate_test(target,data):
+  for d in data:
+    # コーディングテスト用
+    time_to_learn,all_rmse = rnn_test(learning_rate=d,epochs=2,loop_count=5)
+    # 統計収集用
+  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    with open("./memo.txt",'a') as f:
+      f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
+
+
+learning_rate=[0.1,0.01,0.001,0.0001]
+
+# learning_rate_test("learning_rate",learning_rate)
+
+
+def affect_length_test(target,data):
+  for d in data:
+    # コーディングテスト用
+    time_to_learn,all_rmse = rnn_test(affect_length=d,epochs=1,loop_count=50)
+    # 統計収集用
+  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    with open("./memo.txt",'a') as f:
+      f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
+
+Affect_Length=[1, 2, 4, 8, 16, 32, 64, 128]
+affect_length_test("affect_length",Affect_Length)
+
+def activation_test(target,data):
+  for d in data:
+    # コーディングテスト用
+    time_to_learn,all_rmse = rnn_test(activation=d,epochs=1,loop_count=50)
+    # 統計収集用
+  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    with open("./memo.txt",'a') as f:
+      f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
+
+
+activation=['linear','elu','selu','sigmoid','hard_sigmoid','softmax','softplus','softsign','tanh','relu']
+activation_test("activation",activation)
+
+
+def epochs_test(target,data):
+  for d in data:
+    # コーディングテスト用
+    time_to_learn,all_rmse = rnn_test(epochs=d,loop_count=50)
+    # 統計収集用
+  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    with open("./memo.txt",'a') as f:
+      f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
+
+epochs = [100,200,500,1000,2000,5000]
+epochs_test("epochs",epochs)
+
+
+def loss_func_test(target,data):
+  for d in data:
+    # コーディングテスト用
+    time_to_learn,all_rmse = rnn_test(epochs=2,loss_func=d,loop_count=50)
+    # 統計収集用
+  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    with open("./memo.txt",'a') as f:
+      f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
+
+loss_func = ['mean_squared_error','mean_absolute_error','mean_squared_logarithmic_error']
+loss_func_test("loss_func",loss_func)
+
+
+
+def n_hidden_test(target,data):
+  for d in data:
+    # コーディングテスト用
+    time_to_learn,all_rmse = rnn_test(epochs=1,n_hidden=d,loop_count=50)
+    # 統計収集用
+  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    with open("./memo.txt",'a') as f:
+      f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
+
+n_hidden=[1,20,100,200,500,1000]
+n_hidden_test("n_hidden",n_hidden)
+
+
+def batch_size_test(target,data):
+  for d in data:
+    # コーディングテスト用
+    time_to_learn,all_rmse = rnn_test(epochs=1,batch_size=d,loop_count=50)
+    # 統計収集用
+  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    with open("./memo.txt",'a') as f:
+      f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
+
+batch_size = [1,2,4,8,16,32,64,128,256]
+batch_size_test("batch_size",batch_size)
