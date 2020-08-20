@@ -12,6 +12,8 @@ from keras.callbacks import EarlyStopping
 from sklearn.metrics import mean_squared_error
 import time
 import statistics
+import ipdb
+
 
 
 
@@ -25,9 +27,16 @@ def func(x,t,a=4):
 y = np.array([0.2])
 
 for t in range(499):
-  y = np.append(y,func(y,t))
+  if t < 300:
+    y = np.append(y,func(y,t))
+  else:
+    y = np.append(y,func(y,t,5))
+
 
 t = np.arange(500)
+
+
+# print(y.shape)
 
 affect_length = 64
 
@@ -44,7 +53,8 @@ def make_dataset(y, affect_length):
 (factors, answers) = make_dataset(y,affect_length)
 
 factors = factors.reshape(-1,affect_length,1)
-# make_dataset(y,affect_length)
+# print(factors.shape)
+# print(answers.shape)
 # print(factors.shape)      #: (268,32,1)
 # print(answers.shape)      #: (268,)
 
@@ -53,6 +63,8 @@ n_middle = 1
 n_out = 1
 n_hidden_unit = 100
 lr = 0.0001
+
+
 
 # 二乗平均平方根誤差
 def rmse(y_true,y_pred):
@@ -94,6 +106,10 @@ def normal_graph():
       # → max: 監視する値の増加が停止した際に訓練終了
       # → auto: minかmaxか、自動的に推測
   ## patience: 指定したエポック数の間に改善がないと訓練終了
+
+
+  print(hi)
+  ipdb.set_trace()
 
 
 
@@ -141,6 +157,11 @@ def normal_graph():
 # plt.tight_layout()            #グラフの重なりを解消。
   plt.show()
 
+
+# normal_graph()
+
+# ipdb.set_trace()
+# print(y.shape)
 
 
 
@@ -454,9 +475,9 @@ def rnn_test(learning_rate=0.01,affect_length=2,activation='hard_sigmoid',epochs
 def learning_rate_test(target,data):
   for d in data:
     # コーディングテスト用
-    time_to_learn,all_rmse = rnn_test(learning_rate=d,epochs=2,loop_count=5)
+    # time_to_learn,all_rmse = rnn_test(learning_rate=d,epochs=2,loop_count=5)
     # 統計収集用
-  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    time_to_learn,all_rmse = rnn_test(learning_rate=d)
     with open("./memo.txt",'a') as f:
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
@@ -476,7 +497,7 @@ def affect_length_test(target,data):
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 Affect_Length=[1, 2, 4, 8, 16, 32, 64, 128]
-affect_length_test("affect_length",Affect_Length)
+# affect_length_test("affect_length",Affect_Length)
 
 def activation_test(target,data):
   for d in data:
@@ -489,7 +510,7 @@ def activation_test(target,data):
 
 
 activation=['linear','elu','selu','sigmoid','hard_sigmoid','softmax','softplus','softsign','tanh','relu']
-activation_test("activation",activation)
+# activation_test("activation",activation)
 
 
 def epochs_test(target,data):
@@ -502,7 +523,7 @@ def epochs_test(target,data):
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 epochs = [100,200,500,1000,2000,5000]
-epochs_test("epochs",epochs)
+# epochs_test("epochs",epochs)
 
 
 def loss_func_test(target,data):
@@ -515,7 +536,7 @@ def loss_func_test(target,data):
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 loss_func = ['mean_squared_error','mean_absolute_error','mean_squared_logarithmic_error']
-loss_func_test("loss_func",loss_func)
+# loss_func_test("loss_func",loss_func)
 
 
 
@@ -529,7 +550,7 @@ def n_hidden_test(target,data):
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 n_hidden=[1,20,100,200,500,1000]
-n_hidden_test("n_hidden",n_hidden)
+# n_hidden_test("n_hidden",n_hidden)
 
 
 def batch_size_test(target,data):
@@ -542,4 +563,4 @@ def batch_size_test(target,data):
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 batch_size = [1,2,4,8,16,32,64,128,256]
-batch_size_test("batch_size",batch_size)
+# batch_size_test("batch_size",batch_size)
