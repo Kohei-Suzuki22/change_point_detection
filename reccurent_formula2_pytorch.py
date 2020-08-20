@@ -8,12 +8,6 @@ import torch.optim as optimizers
 from torchsample.callbacks import EarlyStopping
 import numpy as np
 import matplotlib.pyplot as plt
-from keras.models import Sequential
-from keras.layers.core import Dense, Activation
-from keras.layers.recurrent import SimpleRNN
-from keras.layers.recurrent import LSTM
-from keras.optimizers import Adam
-from keras.callbacks import EarlyStopping
 from sklearn.metrics import mean_squared_error
 import time
 import statistics
@@ -39,16 +33,6 @@ if __name__ == '__main__':
     '''
     1. データの準備
     '''
-    # def sin(x, T=100):
-    #     box = np.array([])
-    #     box = np.append(box,(np.sin(2.0 * np.pi * x[:100] / T)))
-    #     box = np.append(box,(2 * np.sin(2.0 * np.pi * x[100:] / T)))
-    #     return box
-
-    # def toy_problem(T=100, ampl=0.05):
-    #     x = np.arange(0, 2*T)
-    #     noise = ampl * np.random.uniform(low=-1.0, high=1.0, size=len(x))
-    #     return sin(x) + noise
 
     def func(x,t,a=4):
         return a * x[t] * (1 - x[t])
@@ -61,14 +45,10 @@ if __name__ == '__main__':
         else:
             y = np.append(y,func(y,t))
 
-    # T = 100
-
-    # f = toy_problem(T).astype(np.float32)
-    length_of_sequences = len(y)
     affect_length = 1
     x = []
     t = []
-    for i in range(length_of_sequences - affect_length):
+    for i in range(len(y) - affect_length):
         x.append(y[i:i+affect_length])
         t.append(y[i+affect_length])
     x = np.array(x).reshape(-1, affect_length, 1)
@@ -108,14 +88,12 @@ if __name__ == '__main__':
     batch_size = 25
 
     n_batches = x.shape[0] // batch_size
-    hist = {'loss': [], 'val_loss': []}
+    hist = {'loss': []}
     all_loss = []
     loss_per_epochs = []
-    es = EarlyStopping(patience=10, verbose=1)
+    # es = EarlyStopping(patience=10, verbose=1)
     for epoch in range(epochs):
         train_loss = 0.
-        val_loss = 0.
-
 
         for batch in range(n_batches):
             start = batch * batch_size
@@ -123,21 +101,19 @@ if __name__ == '__main__':
             loss, _ = train_step(x[start:end], t[start:end])
             all_loss.append(loss.item())
             train_loss += loss.item()
-        loss_per_epochs.append(train_loss)
         train_loss /= n_batches
+        loss_per_epochs.append(train_loss)
         hist['loss'].append(train_loss)
         print('epoch: {}, loss: {:.3}'.format(epoch+1,train_loss))
-        # if es(val_loss):
+        # if es(train_loss):
         #     break
     '''
     4. モデルの評価
     '''
     model.eval()
-    # sin波の予測
-    # sin = toy_problem(T, ampl=0.)
     gen = [None for i in range(affect_length)]
     z = x[:1]
-    for i in range(length_of_sequences - affect_length):
+    for i in range(len(y) - affect_length):
         z_ = torch.Tensor(z[-1:]).to(device)
         preds = model(z_).data.cpu().numpy()
         z = np.append(z, preds)[1:]
@@ -146,14 +122,14 @@ if __name__ == '__main__':
     # 予測値を可視化
     fig = plt.figure()
     plt.rc('font', family='serif')
-    # plt.xlim([0, 2*T])
+    # plt.xlim(300,400)
     plt.xlabel("t")
     plt.ylabel("y")
-    # plt.ylim([-1.5, 1.5])
-    plt.plot(range(len(y)), y,linestyle='--', linewidth=0.5,color="blue",label="row_data")
-    plt.plot(range(len(y)), gen, linewidth=1,marker='o', markersize=1, markerfacecolor='black',markeredgecolor='black',color="red",label="pred")
+    plt.plot(range(len(y)), y, linewidth=1,color="blue",label="row_data")
+    plt.plot(range(len(y)), gen, linewidth=0.7,color="red",label="pred")
     plt.legend(loc="lower left")
     plt.show()
+    # ipdb.set_trace()
 
 
     plt.xlabel("epochs")
@@ -162,12 +138,9 @@ if __name__ == '__main__':
     plt.plot(loss_per_epochs,color="blue",label="loss_per_epoch")
     plt.show()
 
+    # ipdb.set_trace()
     plt.xlabel("all_loss(per_batch)")
     plt.ylabel("y")
     plt.xlim(10000,11000)
     plt.plot(all_loss,color="blue",label="loss_per_batch(all_loss)")
     plt.show()
-    ipdb.set_trace()
-
-
-# lossが10万個取りたい。(batch10 * epochs 1000)
