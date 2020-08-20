@@ -12,6 +12,7 @@ from keras.callbacks import EarlyStopping
 from sklearn.metrics import mean_squared_error
 import time
 import statistics
+import ipdb
 
 
 
@@ -25,11 +26,17 @@ def func(x,t,a=4):
 y = np.array([0.2])
 
 for t in range(499):
-  y = np.append(y,func(y,t))
+  if t < 300:
+    y = np.append(y,func(y,t))
+  else:
+    y = np.append(y,func(y,t,3))
+
+# for t in range(499):
+#   y = np.append(y,func(y,t))
 
 t = np.arange(500)
 
-affect_length = 64
+affect_length = 1
 
 
 def make_dataset(y, affect_length):
@@ -97,7 +104,6 @@ def normal_graph():
 
 
 
-
   # 学習
 
   ## バッチサイズ: 128
@@ -132,8 +138,10 @@ def normal_graph():
   print("---検証データ---")
   print(rmse(y_true[-25:],y_pred[-25:]))
 
-  plt.xlim(400, 550)
+  # ipdb.set_trace()
+  # plt.xlim(400, 550)
   plt.plot(t, y, color='blue', label='raw_data')
+  plt.show()
   plt.plot(t[affect_length:], pred, color='red', label='pred')
   plt.xlabel('t')
   plt.legend(loc='lower left')  # 図のラベルの位置を指定。
@@ -142,6 +150,7 @@ def normal_graph():
   plt.show()
 
 
+# normal_graph()
 
 
 # learning_rate
@@ -154,7 +163,7 @@ def normal_graph():
 # num_neurons
 
 
-def rnn_test_per_learning_rate(learning_rate=[0.01],affect_length=2,activation='hard_sigmoid',epochs=2000,loss_func='mean_squared_error',num_neurons=1, n_hidden=20,batch_size=32,patience=300,validation_split=0.05,width=2, height=2, ):
+def rnn_test_per_learning_rate(learning_rate=[0.01],affect_length=2,activation='hard_sigmoid',epochs=2000,loss_func='mean_squared_error',num_neurons=1, n_hidden=20,batch_size=32,patience=300,validation_split=0.05,width=2, height=2,):
   plt.figure(figsize=(20, 20))
   for i, lr in enumerate(learning_rate):
     (factors, answers) = make_dataset(y, affect_length)
@@ -173,17 +182,18 @@ def rnn_test_per_learning_rate(learning_rate=[0.01],affect_length=2,activation='
     y_true = y[affect_length:]
     y_pred = pred.reshape(-1)
 
+    # ipdb.set_trace()
     plt.subplot(width, height, i+1)
     plt.title("learning_rate={}, rmse={}".format(lr,rmse(y_true[-25:],y_pred[-25:])))
-    plt.xlim(450, 510)
+    plt.xlim(250, 350)
     plt.plot(t, y, color='red', label='raw_data')
     plt.plot(t[affect_length:], y_pred, color='blue', label='predicted')
     plt.legend(loc='upper right', ncol=2)
 
   plt.show()
 
-learning_rate=[0.1,0.01,0.001,0.0001]
-# rnn_test_per_learning_rate(learning_rate, width=2, height=2)
+learning_rate=[0.1]
+rnn_test_per_learning_rate(learning_rate, width=1, height=1)
 
 # 学習率は 0.01が最善かも。
 
@@ -454,14 +464,15 @@ def rnn_test(learning_rate=0.01,affect_length=2,activation='hard_sigmoid',epochs
 def learning_rate_test(target,data):
   for d in data:
     # コーディングテスト用
-    time_to_learn,all_rmse = rnn_test(learning_rate=d,epochs=2,loop_count=5)
+    # time_to_learn,all_rmse = rnn_test(learning_rate=d,epochs=2,loop_count=5)
     # 統計収集用
-  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    time_to_learn,all_rmse = rnn_test(learning_rate=d)
     with open("./memo.txt",'a') as f:
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 
-learning_rate=[0.1,0.01,0.001,0.0001]
+# learning_rate=[0.1,0.01,0.001,0.0001]
+learning_rate=[0.1,0.01]
 
 # learning_rate_test("learning_rate",learning_rate)
 
@@ -469,77 +480,77 @@ learning_rate=[0.1,0.01,0.001,0.0001]
 def affect_length_test(target,data):
   for d in data:
     # コーディングテスト用
-    time_to_learn,all_rmse = rnn_test(affect_length=d,epochs=1,loop_count=50)
+    # time_to_learn,all_rmse = rnn_test(affect_length=d,epochs=1,loop_count=50)
     # 統計収集用
-  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    time_to_learn,all_rmse = rnn_test(affect_length=d)
     with open("./memo.txt",'a') as f:
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 Affect_Length=[1, 2, 4, 8, 16, 32, 64, 128]
-affect_length_test("affect_length",Affect_Length)
+# affect_length_test("affect_length",Affect_Length)
 
 def activation_test(target,data):
   for d in data:
     # コーディングテスト用
-    time_to_learn,all_rmse = rnn_test(activation=d,epochs=1,loop_count=50)
+    # time_to_learn,all_rmse = rnn_test(activation=d,epochs=1,loop_count=10)
     # 統計収集用
-  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    time_to_learn,all_rmse = rnn_test(activation=d)
     with open("./memo.txt",'a') as f:
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 
 activation=['linear','elu','selu','sigmoid','hard_sigmoid','softmax','softplus','softsign','tanh','relu']
-activation_test("activation",activation)
+# activation_test("activation",activation)
 
 
 def epochs_test(target,data):
   for d in data:
     # コーディングテスト用
-    time_to_learn,all_rmse = rnn_test(epochs=d,loop_count=50)
+    # time_to_learn,all_rmse = rnn_test(epochs=d,loop_count=10)
     # 統計収集用
-  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    time_to_learn,all_rmse = rnn_test(epochs=d)
     with open("./memo.txt",'a') as f:
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 epochs = [100,200,500,1000,2000,5000]
-epochs_test("epochs",epochs)
+# epochs_test("epochs",epochs)
 
 
 def loss_func_test(target,data):
   for d in data:
     # コーディングテスト用
-    time_to_learn,all_rmse = rnn_test(epochs=2,loss_func=d,loop_count=50)
+    # time_to_learn,all_rmse = rnn_test(epochs=2,loss_func=d,loop_count=10)
     # 統計収集用
-  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    time_to_learn,all_rmse = rnn_test(loss_func=d)
     with open("./memo.txt",'a') as f:
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 loss_func = ['mean_squared_error','mean_absolute_error','mean_squared_logarithmic_error']
-loss_func_test("loss_func",loss_func)
+# loss_func_test("loss_func",loss_func)
 
 
 
 def n_hidden_test(target,data):
   for d in data:
     # コーディングテスト用
-    time_to_learn,all_rmse = rnn_test(epochs=1,n_hidden=d,loop_count=50)
+    # time_to_learn,all_rmse = rnn_test(epochs=1,n_hidden=d,loop_count=10)
     # 統計収集用
-  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    time_to_learn,all_rmse = rnn_test(n_hidden=d)
     with open("./memo.txt",'a') as f:
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
 n_hidden=[1,20,100,200,500,1000]
-n_hidden_test("n_hidden",n_hidden)
+# n_hidden_test("n_hidden",n_hidden)
 
 
 def batch_size_test(target,data):
   for d in data:
     # コーディングテスト用
-    time_to_learn,all_rmse = rnn_test(epochs=1,batch_size=d,loop_count=50)
+    # time_to_learn,all_rmse = rnn_test(epochs=1,batch_size=d,loop_count=10)
     # 統計収集用
-  # time_to_learn,all_rmse = rnn_test_per_learning_rate(learning_rate=lr)
+    time_to_learn,all_rmse = rnn_test(batch_size=d)
     with open("./memo.txt",'a') as f:
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
-batch_size = [1,2,4,8,16,32,64,128,256]
-batch_size_test("batch_size",batch_size)
+batch_size = [4,8,16,32,64,128,256]
+# batch_size_test("batch_size",batch_size)
