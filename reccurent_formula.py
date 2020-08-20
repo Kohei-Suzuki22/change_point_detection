@@ -51,7 +51,8 @@ def make_dataset(y, affect_length):
 (factors, answers) = make_dataset(y,affect_length)
 
 factors = factors.reshape(-1,affect_length,1)
-# make_dataset(y,affect_length)
+# print(factors.shape)
+# print(answers.shape)
 # print(factors.shape)      #: (268,32,1)
 # print(answers.shape)      #: (268,)
 
@@ -60,6 +61,8 @@ n_middle = 1
 n_out = 1
 n_hidden_unit = 100
 lr = 0.0001
+
+
 
 # 二乗平均平方根誤差
 def rmse(y_true,y_pred):
@@ -101,6 +104,10 @@ def normal_graph():
       # → max: 監視する値の増加が停止した際に訓練終了
       # → auto: minかmaxか、自動的に推測
   ## patience: 指定したエポック数の間に改善がないと訓練終了
+
+
+  print(hi)
+  ipdb.set_trace()
 
 
 
@@ -552,5 +559,5 @@ def batch_size_test(target,data):
     with open("./memo.txt",'a') as f:
       f.write("{}=[{}]:     rmse平均={}, rmse標準偏差={}, 平均実行時間={}\n".format(target,d, round(np.mean(all_rmse),4), round(statistics.pstdev(all_rmse),5), round(np.mean(time_to_learn),4)))
 
-batch_size = [4,8,16,32,64,128,256]
+batch_size = [1,2,4,8,16,32,64,128,256]
 # batch_size_test("batch_size",batch_size)
