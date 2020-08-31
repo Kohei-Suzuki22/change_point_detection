@@ -13,6 +13,9 @@ import time
 import statistics
 import ipdb
 import math
+from matplotlib import mathtext
+import pylab as plt
+mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
 
 
 plt.rcParams["font.size"] = 20
@@ -29,7 +32,7 @@ class RNN(nn.Module):
         self.l2 = nn.Linear(hidden_dim, 1)
         nn.init.xavier_normal_(self.l1.weight_ih_l0)
         nn.init.orthogonal_(self.l1.weight_hh_l0)
-    
+
     # 順伝播
     def forward(self, x):
         h, _ = self.l1(x)       # h.shape: [25,1,2] → [batch_size,affect_length,n_hidden]
@@ -69,7 +72,7 @@ if __name__ == '__main__':
     2. モデルの構築
     '''
     # 隠れ層2ニューロンのモデル生成. (RNN(ニューロン数). 2: 凸凹幅大きい。 ←→ ニューロン数200: 凸凹幅小さい。)
-    model = RNN(50).to(device)
+    model = RNN(2).to(device)
 
     '''
     3. モデルの学習
@@ -129,7 +132,7 @@ if __name__ == '__main__':
             plt.xticks([0,5,10,15,20])
             plt.xlabel("i")
             # plt.yticks([0.001,0.002,0.003,0.004,0.005])
-            plt.ylabel("Ei")
+            plt.ylabel("$E_i$")             # iを下付き文字に変換。
             plt.show()
 
 
@@ -164,8 +167,8 @@ if __name__ == '__main__':
     plt.xlabel("t")
     plt.ylabel("x(t)")
     plt.plot(range(len(y)), y, linewidth=1,color="blue",label="row_data")
-    # plt.plot(range(len(y)), predicted, linewidth=0.7,color="red",label="pred")
-    # plt.legend(loc="lower left")
+    plt.plot(range(len(y)), predicted, linewidth=0.7,color="red",label="pred")
+    plt.legend(loc="lower left")
     plt.show()
     # ipdb.set_trace()
 
@@ -179,7 +182,7 @@ if __name__ == '__main__':
     plt.xlabel("all_loss(per_batch)")
     plt.ylabel("y")
     # plt.xlim(10000,11000)
-    plt.xlim(0,1000)
+    # plt.xlim(0,1000)
     plt.plot(all_loss,color="blue",label="loss_per_batch(all_loss)")
     plt.show()
     # ipdb.set_trace()
