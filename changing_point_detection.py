@@ -127,7 +127,7 @@ if __name__ == '__main__':
     batch_size = 25
 
     # 学習実行 & 学習損失GET.
-    def get_loss(factors,answers,model,criterion,optimizer):
+    def get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a):
         n_batches = factors.shape[0] // batch_size      # -> 20 = 500 / 25
         hist = {'loss': []}
         all_loss = []
@@ -145,13 +145,19 @@ if __name__ == '__main__':
                 loss_per_batch.append(loss.item())
             # print(epochs)
             if (epoch == (epochs-1)):
-                plt.plot(loss_per_batch,color="blue",label="Ei")
+                fig = plt.figure(figsize=(12.0,8.0))
+                plt.plot(loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
                 plt.xlim(0,21)
                 plt.xticks([0,5,10,15,20])
                 plt.xlabel("i")
                 # plt.yticks([0.001,0.002,0.003,0.004,0.005])
                 plt.ylabel("$E_i$")             # iを下付き文字に変換。
-                plt.show()
+                # plt.show()
+                plt.legend(loc="lower right")
+                # show_graph(y,predicted,loss_per_epochs,all_loss)
+                fig.savefig("pictures_neuron2/range0.1/change_point_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
+
+
 
 
             train_loss /= n_batches
@@ -196,7 +202,7 @@ if __name__ == '__main__':
         plt.plot(range(len(y)), y, linewidth=1,color="blue",label="row_data")
         plt.plot(range(len(y)), predicted, linewidth=0.7,color="red",label="pred")
         plt.legend(loc="lower left")
-        plt.show()
+        # plt.show()
         # ipdb.set_trace()
 
         # plt.ylabel("y")
@@ -211,27 +217,45 @@ if __name__ == '__main__':
         # plt.xlim(10000,11000)
         # plt.xlim(0,1000)
         plt.plot(all_loss,color="blue",label="loss_per_batch(all_loss)")
-        plt.show()
+        # plt.show()
+        # fig.savefig("change_point_{0}.png".format(picture_name))
         # ipdb.set_trace()
 
     # show_graph(y,predicted,loss_per_epochs,all_loss)
 
 
 
-    def execute_all(before_a=3.7,after_a=4):
+    def execute_all(picture_name,before_a=3.7,after_a=4):
           # 隠れ層2ニューロンのモデル生成. (RNN(ニューロン数). 2: 凸凹幅大きい。 ←→ ニューロン数200: 凸凹幅小さい。)
-        model = RNN(50).to(device)
+        model = RNN(2).to(device)
         criterion = nn.MSELoss(reduction='mean')    # 損失関数: 平均二乗誤差
         optimizer = optimizers.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), amsgrad=True)     # 最適化手法
 
 
         y,factors,answers = make_dataset(before_a,after_a)
-        loss_per_epochs,all_loss = get_loss(factors,answers,model,criterion,optimizer)
+        loss_per_epochs,all_loss = get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a)
         predicted = model_eval(y,factors,model)
-        show_graph(y,predicted,loss_per_epochs,all_loss)
+        # ipdb.set_trace()
+        # show_graph(picture_name,y,predicted,loss_per_epochs,all_loss)
 
-    execute_all()
-    execute_all(3.75,3.95)
-    execute_all(3.8,3.9)
-    execute_all(3.85,3.9)
-    execute_all()
+    # execute_all()
+    # execute_all(3.75,3.95,picture_name)
+    # execute_all(3.8,3.9)
+    # execute_all(3.85,3.9)
+    # execute_all()
+
+    # for i in range(1000):
+    #     a_start = round(3.7 +(i / 1000),4)
+    #     # ipdb.set_trace()
+    #     if (a_start >= 4.0):
+    #         break
+    #     execute_all(i,a_start,4.0)
+
+    for i in range(1000):
+        plus_range = 0.1
+        a_start = round(3.7+(i/10)+plus_range,4)
+        a_end = round(a_start+plus_range,4)
+        # ipdb.set_trace()
+        if(a_end>4.0):
+            break
+        execute_all(i,a_start,a_end)
