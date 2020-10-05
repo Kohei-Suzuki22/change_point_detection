@@ -18,9 +18,9 @@ import pylab as plt
 mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
 
 
-plt.rcParams["font.size"] = 20
+plt.rcParams["font.size"] = 10
 # plt.tight_layout()
-plt.figure(figsize=(12.0,8.0))
+fig = plt.figure(figsize=(20.0,12.0/0.96))
 
 
 
@@ -53,7 +53,7 @@ class LSTM(nn.Module):
         self.l2 = nn.Linear(hidden_dim*2,1)
         nn.init.xavier_normal_(self.l1.weight_ih_l0)
         nn.init.orthogonal_(self.l1.weight_hh_l0)
-    
+
     def forward(self,x):
         h, _ = self.l1(x)
         y = self.l2(h[:,-1])
@@ -68,7 +68,7 @@ class GRU(nn.Module):
         self.l2 = nn.Linear(hidden_dim*2,1)
         nn.init.xavier_normal_(self.l1.weight_ih_l0)
         nn.init.orthogonal_(self.l1.weight_hh_l0)
-    
+
     def forward(self,x):
         h, _ = self.l1(x)
         y = self.l2(h[:,-1])
@@ -118,16 +118,22 @@ if __name__ == '__main__':
         return y
 
     def factors_answers_init():
-        factors = []
-        answers = []
+        # factors = []
+        factors = np.array([])
+        # answers = []
+        answers = np.array([])
         return (factors,answers)
 
     def set_factors_answers(y,factors,answers):
         for i in range(len(y) - affect_length):
-            factors.append(y[i:i+affect_length])
-            answers.append(y[i+affect_length])
-        factors = np.array(factors).reshape(-1, affect_length, 1)
-        answers = np.array(answers).reshape(-1, 1)
+            # factors.append(y[i:i+affect_length])
+            factors = np.append(factors,y[i:i+affect_length])
+            # answers.append(y[i+affect_length])
+            answers = np.append(answers,y[i+affect_length])
+        # factors = np.array(factors).reshape(-1, affect_length, 1)
+        factors = factors.reshape(-1,affect_length,1)
+        # answers = np.array(answers).reshape(-1, 1)
+        answers = answers.reshape(-1,1)
         return (factors,answers)
 
 
@@ -138,20 +144,6 @@ if __name__ == '__main__':
         factors,answers = set_factors_answers(y,factors,answers)
         return (y,factors,answers)
 
-    # y,factors,answers = make_dataset(3.7,4)
-
-
-    '''
-    2. モデルの構築
-    '''
-    # 隠れ層2ニューロンのモデル生成. (RNN(ニューロン数). 2: 凸凹幅大きい。 ←→ ニューロン数200: 凸凹幅小さい。)
-    # model = RNN(50).to(device)
-
-    '''
-    3. モデルの学習
-    '''
-    # criterion = nn.MSELoss(reduction='mean')    # 損失関数: 平均二乗誤差
-    # optimizer = optimizers.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), amsgrad=True)     # 最適化手法
 
     # 誤差を計算(平均二乗誤差).
     def compute_loss(preds,answers,criterion):
@@ -179,106 +171,62 @@ if __name__ == '__main__':
     def get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a):
         n_batches = factors.shape[0] // batch_size      # -> 20 = 500 / 25
         hist = {'loss': []}
-        all_loss = []
-        loss_per_epochs = []
         # es = EarlyStopping(patience=10, verbose=1)
         for epoch in range(epochs):
             train_loss = 0.
-            loss_per_batch = []
+            loss_per_batch = np.array([])
+            preds_per_batch = np.array([])
             for batch in range(n_batches):
                 start = batch * batch_size
                 end = start + batch_size
-                loss, _ = train_step(factors[start:end], answers[start:end],model,criterion,optimizer)
-                all_loss.append(loss.item())
-                train_loss += loss.item()
-                loss_per_batch.append(loss.item())
-
-            if (epoch == (epochs-1)):
-                fig = plt.figure(figsize=(12.0,8.0))
-                plt.plot(loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
-                plt.xlim(0,21)
-                plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
-                # plt.xticks([0,5,10,15,20])
-                plt.xlabel("i")
-                # plt.yticks([0.001,0.002,0.003,0.004,0.005])
-                plt.ylabel("$E_i$")             # iを下付き文字に変換。
-                # plt.show()
-                plt.legend(loc="lower right")
-                # plt.show()
-                # show_graph(y,predicted,loss_per_epochs,all_loss)
-                # fig.savefig("gru_pictures/pictures_neuron2/epochs_1000/batch_1/bidirectional/change_point_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
-                ipdb.set_trace()
-
-
-
+                loss, preds = train_step(factors[start:end], answers[start:end],model,criterion,optimizer)
+                train_loss += loss.data
+                loss_per_batch = np.append(loss_per_batch,loss.data)
+                preds_per_batch = np.append(preds_per_batch,preds.data)
 
             train_loss /= n_batches
-            loss_per_epochs.append(train_loss)
             hist['loss'].append(train_loss)
             print('epoch: {}, loss: {:.3}'.format(epoch+1,train_loss))
             # if es(train_loss):
             #     break
-        return (loss_per_epochs,all_loss)
-
-    # loss_per_epochs,all_loss = get_loss(factors,answers)
-
-    '''
-    4. モデルの評価TypeError: __init__() missing 2 required positional arguments: 'in_features' and 'out_features'
-    '''
-    def model_eval(y,factors,model):
-        model.eval()        # モデルに「評価モードになれ」と伝える。
-        predicted = [None for i in range(affect_length)]        # 予測結果を入れる箱。
-        z = factors[:1]
-        # ipdb.set_trace()
-        for i in range(len(y) - affect_length):
-            z_ = torch.Tensor(z[-1:]).to(device)
-            preds = model(z_).data.cpu().numpy()
-            z = np.append(z, preds)[1:]
-            z = z.reshape(-1, affect_length, 1)
-            predicted.append(preds[0, 0])
-
-        return predicted
-
-    # predicted = model_eval(y,factors)
+        return (loss_per_batch,preds_per_batch)
 
 
-    # ipdb.set_trace()
 
     # グラフの作成
-    def show_graph(y,predicted,loss_per_epochs,all_loss,picture_name):
+    def show_raw_graph(y):
         plt.rc('font', family='serif')
-        # ipdb.set_trace()
-        # plt.xlim(300,400)
-        fig = plt.figure()
+        plt.subplot(3,1,1)
         plt.xlabel("t")
         plt.ylabel("x(t)")
         plt.plot(range(len(y)), y, linewidth=1,color="blue",label="row_data")
-        plt.plot(range(len(y)), predicted, linewidth=0.7,color="red",label="pred")
         plt.legend(loc="lower left")
-        # plt.show()
+
+    def show_graph_compare_raw_preds(answers,preds,picture_name):
+        # plt.rc('font', family='serif')
+        plt.subplot(3,1,3)
+        # fig = plt.figure(figsize=(12.0,8.0))
+        plt.xlabel("t")
+        plt.ylabel("x(t)")
+        plt.plot(range(len(answers)), answers, linewidth=1,color="blue",label="row_data")
+        plt.plot(range(len(preds)),preds,linewidth=0.6,color="red",label="pred")
+        plt.legend(loc="lower left")
         # fig.savefig("gru_pictures/pictures_neuron2/epochs_1000/batch_1/bidirectional/system_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
-
-        # plt.show()
-        # ipdb.set_trace()
-
-        # plt.ylabel("y")
-        # plt.xlabel("epochs")
-        # plt.xlim(0,1000)
-
-        # plt.plot(loss_per_epochs,color="blue",label="loss_per_epoch")
-        # plt.show()
-        # plt.xlabel("all_loss(per_batch)")
-        # plt.ylabel("y")
-
-        # plt.xlim(10000,11000)
-        # plt.xlim(0,1000)
-        # plt.plot(all_loss,color="blue",label="loss_per_batch(all_loss)")
-        # plt.show()
-        # fig.savefig("change_point_{0}.png".format(picture_name))
-        # ipdb.set_trace()
-
-    # show_graph(y,predicted,loss_per_epochs,all_loss)
-
+        # return plt
+    
+    def show_graph_loss_per_batch(loss_per_batch,picture_name,before_a,after_a,epochs):
+        # fig = plt.figure(figsize=(12.0,8.0))
+        plt.subplot(3,1,2)
+        plt.plot(loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
+        # plt.xlim(0,21)
+        # plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
+        # plt.xticks([0,5,10,15,20])
+        plt.xlabel("i")
+        # plt.yticks([0.001,0.002,0.003,0.004,0.005])
+        plt.ylabel("$E_i$")             # iを下付き文字に変換。
+        plt.legend(loc="lower right")
+        # fig.savefig("gru_pictures/pictures_neuron2/epochs_1000/batch_1/bidirectional/change_point_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
+        # return plt
 
 
     def execute_all(picture_name,model,before_a=3.7,after_a=4):
@@ -289,18 +237,18 @@ if __name__ == '__main__':
 
 
         y,factors,answers = make_dataset(before_a,after_a)
-        loss_per_epochs,all_loss = get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a)
-        predicted = model_eval(y,factors,model)
-        show_graph(y,predicted,loss_per_epochs,all_loss,picture_name)
+        loss_per_batch,preds_per_batch = get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a)
+        show_raw_graph(y)
+        show_graph_compare_raw_preds(answers,preds_per_batch,picture_name)
+        show_graph_loss_per_batch(loss_per_batch,picture_name,before_a,after_a,epochs)
+        plt.show()
 
 
-    model = RNN(2).to(device)
-    # ipdb.set_trace()
-    # ipdb.set_trace()
     # model = MLP(1,4,1).to(device)
-    # model = LSTM(2).to(device)
-    # ipdb.set_trace()
-    execute_all(0,model,3.85,4.0)
+    # model = RNN(2).to(device)
+    model = LSTM(2).to(device)
+    # model = GRU(2).to(device)
+    execute_all(0,model,3.90,4.0)
 
     # for i in range(1000):
     #     a_start = round(3.7 +(i / 1000),4)
@@ -332,9 +280,4 @@ if __name__ == '__main__':
     # # plt.subplot(2,3,params.index(param)+1)
     # plt.plot(y,label="a = {0} → 4.0".format(3.7))
     # plt.legend(loc="lower right")
-    # plt.show()
-
-
-
-    # plt.show()
 
