@@ -27,10 +27,14 @@ plt.figure(figsize=(12.0,8.0))
 class RNN(nn.Module):
     def __init__(self, hidden_dim):
         super().__init__()
+        # self.l1 = nn.RNN(1, hidden_dim,batch_first=True)
+        self.l1 = nn.RNN(1, hidden_dim,batch_first=True,bidirectional=True)
+
         # 入力層(第一層) →  入力:1,出力:hidden_dim
-        self.l1 = nn.RNN(1, hidden_dim,nonlinearity='tanh',batch_first=True)
         # 出力層(第二層) →  入力:hidden_dim,出力:1
-        self.l2 = nn.Linear(hidden_dim, 1)
+        # self.l2 = nn.Linear(hidden_dim, 1)
+        self.l2 = nn.Linear(hidden_dim*2, 1)
+
         nn.init.xavier_normal_(self.l1.weight_ih_l0)
         nn.init.orthogonal_(self.l1.weight_hh_l0)
 
@@ -39,6 +43,54 @@ class RNN(nn.Module):
         h, _ = self.l1(x)       # h.shape: [25,1,2] → [batch_size,affect_length,n_hidden]
         y = self.l2(h[:, -1])   # y.shape: [25,1]   → [予測結果(batch_size分)]
         return y                # 予測結果を出力.
+
+class LSTM(nn.Module):
+    def __init__(self,hidden_dim):
+        super().__init__()
+        # self.l1 = nn.LSTM(1,hidden_dim,batch_first=True)
+        self.l1 = nn.LSTM(1,hidden_dim,batch_first=True,bidirectional=True)
+        # self.l2 = nn.Linear(hidden_dim,1)
+        self.l2 = nn.Linear(hidden_dim*2,1)
+        nn.init.xavier_normal_(self.l1.weight_ih_l0)
+        nn.init.orthogonal_(self.l1.weight_hh_l0)
+    
+    def forward(self,x):
+        h, _ = self.l1(x)
+        y = self.l2(h[:,-1])
+        return y
+
+class GRU(nn.Module):
+    def __init__(self,hidden_dim):
+        super().__init__()
+
+        self.l1 = nn.LSTM(1,hidden_dim,batch_first=True,bidirectional=True)
+        # self.l2 = nn.Linear(hidden_dim,1)
+        self.l2 = nn.Linear(hidden_dim*2,1)
+        nn.init.xavier_normal_(self.l1.weight_ih_l0)
+        nn.init.orthogonal_(self.l1.weight_hh_l0)
+    
+    def forward(self,x):
+        h, _ = self.l1(x)
+        y = self.l2(h[:,-1])
+        return y
+
+class MLP(nn.Module):
+    '''
+    多層パーセプトロン
+    '''
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super().__init__()
+        self.l1 = nn.Linear(input_dim,hidden_dim)
+        self.a1 = nn.Tanh()
+        self.l2 = nn.Linear(hidden_dim,output_dim)
+
+        self.layers = [self.l1, self.a1, self.l2]
+
+    def forward(self,x):
+        for layer in self.layers:
+            x = layer(x)
+
+        return x
 
 if __name__ == '__main__':
     np.random.seed(123)
@@ -89,9 +141,6 @@ if __name__ == '__main__':
     # y,factors,answers = make_dataset(3.7,4)
 
 
-
-
-
     '''
     2. モデルの構築
     '''
@@ -124,7 +173,7 @@ if __name__ == '__main__':
 
 
     epochs = 1000
-    batch_size = 25
+    batch_size = 1
 
     # 学習実行 & 学習損失GET.
     def get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a):
@@ -143,19 +192,22 @@ if __name__ == '__main__':
                 all_loss.append(loss.item())
                 train_loss += loss.item()
                 loss_per_batch.append(loss.item())
-            # print(epochs)
+
             if (epoch == (epochs-1)):
                 fig = plt.figure(figsize=(12.0,8.0))
                 plt.plot(loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
                 plt.xlim(0,21)
-                plt.xticks([0,5,10,15,20])
+                plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
+                # plt.xticks([0,5,10,15,20])
                 plt.xlabel("i")
                 # plt.yticks([0.001,0.002,0.003,0.004,0.005])
                 plt.ylabel("$E_i$")             # iを下付き文字に変換。
                 # plt.show()
                 plt.legend(loc="lower right")
+                # plt.show()
                 # show_graph(y,predicted,loss_per_epochs,all_loss)
-                fig.savefig("pictures_neuron2/range0.1/change_point_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
+                # fig.savefig("gru_pictures/pictures_neuron2/epochs_1000/batch_1/bidirectional/change_point_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
+                ipdb.set_trace()
 
 
 
@@ -171,7 +223,7 @@ if __name__ == '__main__':
     # loss_per_epochs,all_loss = get_loss(factors,answers)
 
     '''
-    4. モデルの評価
+    4. モデルの評価TypeError: __init__() missing 2 required positional arguments: 'in_features' and 'out_features'
     '''
     def model_eval(y,factors,model):
         model.eval()        # モデルに「評価モードになれ」と伝える。
@@ -193,8 +245,9 @@ if __name__ == '__main__':
     # ipdb.set_trace()
 
     # グラフの作成
-    def show_graph(y,predicted,loss_per_epochs,all_loss):
+    def show_graph(y,predicted,loss_per_epochs,all_loss,picture_name):
         plt.rc('font', family='serif')
+        # ipdb.set_trace()
         # plt.xlim(300,400)
         fig = plt.figure()
         plt.xlabel("t")
@@ -202,6 +255,9 @@ if __name__ == '__main__':
         plt.plot(range(len(y)), y, linewidth=1,color="blue",label="row_data")
         plt.plot(range(len(y)), predicted, linewidth=0.7,color="red",label="pred")
         plt.legend(loc="lower left")
+        # plt.show()
+        # fig.savefig("gru_pictures/pictures_neuron2/epochs_1000/batch_1/bidirectional/system_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
+
         # plt.show()
         # ipdb.set_trace()
 
@@ -211,12 +267,12 @@ if __name__ == '__main__':
 
         # plt.plot(loss_per_epochs,color="blue",label="loss_per_epoch")
         # plt.show()
-        plt.xlabel("all_loss(per_batch)")
-        plt.ylabel("y")
+        # plt.xlabel("all_loss(per_batch)")
+        # plt.ylabel("y")
 
         # plt.xlim(10000,11000)
         # plt.xlim(0,1000)
-        plt.plot(all_loss,color="blue",label="loss_per_batch(all_loss)")
+        # plt.plot(all_loss,color="blue",label="loss_per_batch(all_loss)")
         # plt.show()
         # fig.savefig("change_point_{0}.png".format(picture_name))
         # ipdb.set_trace()
@@ -225,9 +281,9 @@ if __name__ == '__main__':
 
 
 
-    def execute_all(picture_name,before_a=3.7,after_a=4):
+    def execute_all(picture_name,model,before_a=3.7,after_a=4):
           # 隠れ層2ニューロンのモデル生成. (RNN(ニューロン数). 2: 凸凹幅大きい。 ←→ ニューロン数200: 凸凹幅小さい。)
-        model = RNN(2).to(device)
+
         criterion = nn.MSELoss(reduction='mean')    # 損失関数: 平均二乗誤差
         optimizer = optimizers.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), amsgrad=True)     # 最適化手法
 
@@ -235,27 +291,50 @@ if __name__ == '__main__':
         y,factors,answers = make_dataset(before_a,after_a)
         loss_per_epochs,all_loss = get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a)
         predicted = model_eval(y,factors,model)
-        # ipdb.set_trace()
-        # show_graph(picture_name,y,predicted,loss_per_epochs,all_loss)
+        show_graph(y,predicted,loss_per_epochs,all_loss,picture_name)
 
-    # execute_all()
-    # execute_all(3.75,3.95,picture_name)
-    # execute_all(3.8,3.9)
-    # execute_all(3.85,3.9)
-    # execute_all()
+
+    model = RNN(2).to(device)
+    # ipdb.set_trace()
+    # ipdb.set_trace()
+    # model = MLP(1,4,1).to(device)
+    # model = LSTM(2).to(device)
+    # ipdb.set_trace()
+    execute_all(0,model,3.85,4.0)
 
     # for i in range(1000):
     #     a_start = round(3.7 +(i / 1000),4)
-    #     # ipdb.set_trace()
-    #     if (a_start >= 4.0):
+    #     if (a_start > 4.0):
     #         break
-    #     execute_all(i,a_start,4.0)
+    #     # model = MLP(1,4,1).to(device)
+    #     # model = RNN(2).to(device)
+    #     # model = LSTM(2).to(device)
+    #     model = GRU(2).to(device)
+    #     execute_all(i,model,a_start,4.0)
 
-    for i in range(1000):
-        plus_range = 0.1
-        a_start = round(3.7+(i/10)+plus_range,4)
-        a_end = round(a_start+plus_range,4)
-        # ipdb.set_trace()
-        if(a_end>4.0):
-            break
-        execute_all(i,a_start,a_end)
+    # for i in range(1000):
+    #     plus_range = 0.1
+    #     a_start = round(3.7+(i/10)+plus_range,4)
+    #     a_end = round(a_start+plus_range,4)
+    #     if(a_end>4.0):
+    #         break
+    #     execute_all(i,a_start,a_end)
+
+    # y = y_init
+    # params = [3.7, 3.8, 3.85, 3.9, 3.95, 3.99]
+    # for param in params:
+    #     y = set_y_params(y_init(),param,4)
+    #     plt.subplot(2,3,params.index(param)+1)
+    #     plt.plot(y,label="a = {0} → 4.0".format(param))
+    #     plt.legend(loc="lower right")
+
+    # y = set_y_params(y_init(),3.7,4)
+    # # plt.subplot(2,3,params.index(param)+1)
+    # plt.plot(y,label="a = {0} → 4.0".format(3.7))
+    # plt.legend(loc="lower right")
+    # plt.show()
+
+
+
+    # plt.show()
+
