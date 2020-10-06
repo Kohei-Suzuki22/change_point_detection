@@ -19,7 +19,6 @@ mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
 
 
 plt.rcParams["font.size"] = 10
-# plt.tight_layout()
 fig = plt.figure(figsize=(20.0,12.0/0.96))
 
 
@@ -118,21 +117,15 @@ if __name__ == '__main__':
         return y
 
     def factors_answers_init():
-        # factors = []
         factors = np.array([])
-        # answers = []
         answers = np.array([])
         return (factors,answers)
 
     def set_factors_answers(y,factors,answers):
         for i in range(len(y) - affect_length):
-            # factors.append(y[i:i+affect_length])
             factors = np.append(factors,y[i:i+affect_length])
-            # answers.append(y[i+affect_length])
             answers = np.append(answers,y[i+affect_length])
-        # factors = np.array(factors).reshape(-1, affect_length, 1)
         factors = factors.reshape(-1,affect_length,1)
-        # answers = np.array(answers).reshape(-1, 1)
         answers = answers.reshape(-1,1)
         return (factors,answers)
 
@@ -195,38 +188,38 @@ if __name__ == '__main__':
 
     # グラフの作成
     def show_raw_graph(y):
-        plt.rc('font', family='serif')
         plt.subplot(3,1,1)
+        plt.title("raw")
         plt.xlabel("t")
+        plt.xticks([50,100,150,200,250,300,350,400,450,500])
         plt.ylabel("x(t)")
         plt.plot(range(len(y)), y, linewidth=1,color="blue",label="row_data")
         plt.legend(loc="lower left")
 
     def show_graph_compare_raw_preds(answers,preds,picture_name):
-        # plt.rc('font', family='serif')
         plt.subplot(3,1,3)
-        # fig = plt.figure(figsize=(12.0,8.0))
+        plt.title("loss flow")
         plt.xlabel("t")
         plt.ylabel("x(t)")
         plt.plot(range(len(answers)), answers, linewidth=1,color="blue",label="row_data")
         plt.plot(range(len(preds)),preds,linewidth=0.6,color="red",label="pred")
         plt.legend(loc="lower left")
         # fig.savefig("gru_pictures/pictures_neuron2/epochs_1000/batch_1/bidirectional/system_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
-        # return plt
-    
+
     def show_graph_loss_per_batch(loss_per_batch,picture_name,before_a,after_a,epochs):
-        # fig = plt.figure(figsize=(12.0,8.0))
         plt.subplot(3,1,2)
-        plt.plot(loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
-        # plt.xlim(0,21)
-        # plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
-        # plt.xticks([0,5,10,15,20])
+        plt.title("compare raw and pred")
+        plt.plot(range(len(loss_per_batch)),loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
         plt.xlabel("i")
-        # plt.yticks([0.001,0.002,0.003,0.004,0.005])
+        plt.xticks([50,100,150,200,250,300,350,400,450,500])
         plt.ylabel("$E_i$")             # iを下付き文字に変換。
         plt.legend(loc="lower right")
+        interval = 10
+        end = loss_per_batch.shape[0]
+        start = end // interval
+        xticks = np.append(0,np.linspace(start,end,interval))
+        plt.xticks(xticks)
         # fig.savefig("gru_pictures/pictures_neuron2/epochs_1000/batch_1/bidirectional/change_point_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
-        # return plt
 
 
     def execute_all(picture_name,model,before_a=3.7,after_a=4):
@@ -241,14 +234,16 @@ if __name__ == '__main__':
         show_raw_graph(y)
         show_graph_compare_raw_preds(answers,preds_per_batch,picture_name)
         show_graph_loss_per_batch(loss_per_batch,picture_name,before_a,after_a,epochs)
+        plt.tight_layout()
+        ipdb.set_trace()
         plt.show()
 
 
-    # model = MLP(1,4,1).to(device)
+    model = MLP(1,4,1).to(device)
     # model = RNN(2).to(device)
-    model = LSTM(2).to(device)
+    # model = LSTM(2).to(device)
     # model = GRU(2).to(device)
-    execute_all(0,model,3.90,4.0)
+    execute_all(0,model,3.70,4.0)
 
     # for i in range(1000):
     #     a_start = round(3.7 +(i / 1000),4)
