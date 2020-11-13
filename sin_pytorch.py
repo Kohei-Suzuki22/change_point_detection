@@ -32,6 +32,30 @@ class RNN(nn.Module):
         y = self.l2(h[:, -1])
         return y
 
+class MLP(nn.Module):
+    '''
+    多層パーセプトロン
+    '''
+    def __init__(self, input_dim, hidden1_dim,output_dim):
+    # def __init__(self, input_dim, hidden1_dim, hidden2_dim,hidden3_dim,output_dim):
+        super().__init__()
+        self.l1 = nn.Linear(input_dim,hidden1_dim)
+        self.a1 = nn.Tanh()
+        self.l2 = nn.Linear(hidden1_dim,output_dim)
+        # self.a2 = nn.Tanh()
+        # self.l3 = nn.Linear(hidden2_dim,hidden3_dim)
+        # self.a3 = nn.Tanh()
+        # self.l4 = nn.Linear(hidden3_dim,output_dim)
+
+        self.layers = [self.l1, self.a1, self.l2]
+        # self.layers = [self.l1, self.a1, self.l2,self.a2,self.l3,self.a3,self.l4]
+
+    def forward(self,x):
+        for layer in self.layers:
+            x = layer(x)
+
+        return x
+
 if __name__ == '__main__':
     np.random.seed(123)
     torch.manual_seed(123)
@@ -65,7 +89,7 @@ if __name__ == '__main__':
 
     f = toy_problem(T).astype(np.float32)
     length_of_sequences = len(f)
-    affect_length = 25
+    affect_length = 1
     x = []
     t = []
     for i in range(length_of_sequences - affect_length):
@@ -73,10 +97,15 @@ if __name__ == '__main__':
         t.append(f[i+affect_length])
     x = np.array(x).reshape(-1, affect_length, 1)
     t = np.array(t).reshape(-1, 1)
+    # ipdb.set_trace()
     '''
     2. モデルの構築
     '''
-    model = RNN(50).to(device)
+    # model = RNN(2).to(device)
+    # model = RNN(50).to(device)
+    # model = MLP(2,3,3,3,1).to(device)
+    model = MLP(1,2,1).to(device)
+    # ipdb.set_trace()
     '''
     3. モデルの学習
     '''
@@ -147,8 +176,8 @@ if __name__ == '__main__':
     plt.xlabel("t")
     plt.ylabel("y")
     # plt.ylim([-1.5, 1.5])
-    plt.plot(range(len(f)), sin,linestyle='--', linewidth=0.5,color="blue",label="row_data")
-    plt.plot(range(len(f)), gen, linewidth=1,marker='o', markersize=1, markerfacecolor='black',markeredgecolor='black',color="red",label="pred")
+    plt.plot(range(len(f)), sin, color="blue",label="row_data")
+    plt.plot(range(len(f)), gen, linewidth=0.5,color="red",label="pred")
     plt.legend(loc="lower left")
     plt.show()
 
@@ -163,7 +192,7 @@ if __name__ == '__main__':
     # plt.xlim(0,1000)
     plt.plot(all_loss,color="blue",label="loss_per_batch(all_loss)")
     plt.show()
-    ipdb.set_trace()
+    # ipdb.set_trace()
 
 
 # lossが10万個取りたい。(batch10 * epochs 1000)
