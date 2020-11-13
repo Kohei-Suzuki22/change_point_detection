@@ -18,30 +18,50 @@ import pylab as plt
 mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
 
 
-plt.rcParams["font.size"] = 10
-fig = plt.figure(figsize=(20.0,12.0/0.96))
+# plt.rcParams["font.size"] = 10
+# fig = plt.figure(figsize=(20.0,12.0/0.96))
 
 
 
 class RNN(nn.Module):
-    def __init__(self, hidden_dim):
+    def __init__(self, hidden_dim,bidirection=False):
         super().__init__()
-        # self.l1 = nn.RNN(1, hidden_dim,batch_first=True)
-        self.l1 = nn.RNN(1, hidden_dim,batch_first=True,bidirectional=True)
+        if bidirection == True:
+            self.l1 = nn.RNN(1, hidden_dim,batch_first=True,bidirectional=True)
+
+            self.l2 = nn.Linear(hidden_dim*2,hidden_dim*2)
+            self.a2 = nn.Tanh()
+
+            self.l3 = nn.Linear(hidden_dim*2,hidden_dim*2)
+            self.a3 = nn.Tanh()
+
+            self.l4 = nn.Linear(hidden_dim*2,hidden_dim*2)
+            self.a4 = nn.Tanh()
+
+            self.l5 = nn.Linear(hidden_dim*2, 1)
+        elif bidirection == False:
+            self.l1 = nn.RNN(1, hidden_dim,batch_first=True)
+            self.l2 = nn.Linear(hidden_dim, 1)
 
         # 入力層(第一層) →  入力:1,出力:hidden_dim
         # 出力層(第二層) →  入力:hidden_dim,出力:1
-        # self.l2 = nn.Linear(hidden_dim, 1)
-        self.l2 = nn.Linear(hidden_dim*2, 1)
 
         nn.init.xavier_normal_(self.l1.weight_ih_l0)
         nn.init.orthogonal_(self.l1.weight_hh_l0)
 
+        self.layers = [self.l1, self.l2, self.a2, self.l3, self.a3, self.l4, self.a4, self.l5]
+
+
     # 順伝播
     def forward(self, x):
-        h, _ = self.l1(x)       # h.shape: [25,1,2] → [batch_size,affect_length,n_hidden]
-        y = self.l2(h[:, -1])   # y.shape: [25,1]   → [予測結果(batch_size分)]
-        return y                # 予測結果を出力.
+
+        for layer in self.layers:
+            if isinstance(layer,torch.nn.modules.rnn.RNN):
+                x = layer(x)[0]
+            else:
+                x = layer(x)
+
+        return x
 
 class LSTM(nn.Module):
     def __init__(self,hidden_dim):
@@ -55,8 +75,8 @@ class LSTM(nn.Module):
 
     def forward(self,x):
         h, _ = self.l1(x)
-        y = self.l2(h[:,-1])
-        return y
+        x = self.l2(h[:,-1])
+        return x
 
 class GRU(nn.Module):
     def __init__(self,hidden_dim):
@@ -65,13 +85,13 @@ class GRU(nn.Module):
         self.l1 = nn.LSTM(1,hidden_dim,batch_first=True,bidirectional=True)
         # self.l2 = nn.Linear(hidden_dim,1)
         self.l2 = nn.Linear(hidden_dim*2,1)
-        nn.init.xavier_normal_(self.l1.weight_ih_l0)
-        nn.init.orthogonal_(self.l1.weight_hh_l0)
+        nn.init.xavier_normal_(self.l1.weight_ih_l0)        #
+        nn.init.orthogonal_(self.l1.weight_hh_l0)           #
 
     def forward(self,x):
         h, _ = self.l1(x)
-        y = self.l2(h[:,-1])
-        return y
+        x = self.l2(h[:,-1])
+        return x
 
 class MLP(nn.Module):
     '''
@@ -91,6 +111,51 @@ class MLP(nn.Module):
 
         return x
 
+class LogisticFunc():
+
+    def __init__(self,before_a,after_a):
+        self.before_a = before_a
+        self.after_a = after_a
+        self.x = np.array([0.2])
+
+    def logistic_func(self,t,a):
+            return a * self.x[t] * (1 - self.x[t])
+
+    def make_time_series(self):
+        for t in range(500):
+            if t < 250:
+                self.x = np.append(self.x,self.logistic_func(t,self.before_a))
+            else:
+                self.x = np.append(self.x,self.logistic_func(t,self.after_a))
+        return self.x
+
+class HenonFunc():
+
+    def __init__(self,b,before_a,after_a):
+        self.b = 0.3
+        self.before_a = before_a
+        self.after_a = after_a
+        self.x = np.array([0.1])
+        self.y = np.array([0.])
+
+    def henon_func_x(self,t,a):
+        return 1 - a * self.x[t] ** 2 + self.y[t]
+
+    def henon_func_y(self,t,a):
+        return self.b * self.x[t]
+
+    def make_time_series(self):
+        for t in range(500):
+            if t < 250:
+                self.x = np.append(self.x,self.henon_func_x(t,self.before_a))
+                self.y = np.append(self.y,self.henon_func_x(t,self.before_a))
+            else:
+                self.x = np.append(self.x,self.henon_func_x(t,self.before_a))
+                self.y = np.append(self.y,self.henon_func_x(t,self.before_a))
+        return self.x
+
+
+
 if __name__ == '__main__':
     np.random.seed(123)
     torch.manual_seed(123)
@@ -102,40 +167,29 @@ if __name__ == '__main__':
     '''
     affect_length = 1
 
-    def func(x,t,a=4):
-        return a * x[t] * (1 - x[t])
-
-    def y_init():
-        return np.array([0.2])
-
-    def set_y_params(y,before_a=3.7,after_a=4):
-        for t in range(500):
-            if t < 250:
-                y = np.append(y,func(y,t,before_a))
-            else:
-                y = np.append(y,func(y,t,after_a))
-        return y
 
     def factors_answers_init():
         factors = np.array([])
         answers = np.array([])
         return (factors,answers)
 
-    def set_factors_answers(y,factors,answers):
-        for i in range(len(y) - affect_length):
-            factors = np.append(factors,y[i:i+affect_length])
-            answers = np.append(answers,y[i+affect_length])
+    def set_factors_answers(x,factors,answers):
+        for i in range(len(x) - affect_length):
+            factors = np.append(factors,x[i:i+affect_length])
+            answers = np.append(answers,x[i+affect_length])
         factors = factors.reshape(-1,affect_length,1)
-        answers = answers.reshape(-1,1)
+        answers = answers.reshape(-1,1)         # .shape: (500,1)
         return (factors,answers)
 
-
-    def make_dataset(before_a=3.7,after_a=4):
-        y = y_init()
-        y = set_y_params(y,before_a,after_a)
+    def make_dataset(target,before_a,after_a):
         factors,answers = factors_answers_init()
-        factors,answers = set_factors_answers(y,factors,answers)
-        return (y,factors,answers)
+        if target == "logistic":
+            func = LogisticFunc(before_a,after_a)
+        elif target == "henon":
+            func = HenonFunc(0.3,before_a,after_a)
+        x = func.make_time_series()
+        factors,answers = set_factors_answers(x,factors,answers)
+        return (x,factors,answers)
 
 
     # 誤差を計算(平均二乗誤差).
@@ -147,9 +201,8 @@ if __name__ == '__main__':
         # factors,answersを pytorch用データに変換。
         factors = torch.Tensor(factors).to(device)
         answers = torch.Tensor(answers).to(device)
-
         model.train()                       # モデルに「学習モードになれ」と伝える。
-        preds = model(factors)              # forwardメソッド実行。
+        preds = model(factors)              # forwardメソッド実行。                     # factors.shape: (1,1,1)を入れる必要がある
         loss = compute_loss(preds,answers,criterion)  # 誤差は平均二乗誤差.
         optimizer.zero_grad()
         loss.backward()                     # 誤差逆伝播.
@@ -157,14 +210,13 @@ if __name__ == '__main__':
         return loss, preds
 
 
-    epochs = 1000
+    epochs = 1
     batch_size = 1
 
     # 学習実行 & 学習損失GET.
     def get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a):
-        n_batches = factors.shape[0] // batch_size      # -> 20 = 500 / 25
+        n_batches = factors.shape[0] // batch_size
         hist = {'loss': []}
-        # es = EarlyStopping(patience=10, verbose=1)
         for epoch in range(epochs):
             train_loss = 0.
             loss_per_batch = np.array([])
@@ -180,99 +232,125 @@ if __name__ == '__main__':
             train_loss /= n_batches
             hist['loss'].append(train_loss)
             print('epoch: {}, loss: {:.3}'.format(epoch+1,train_loss))
-            # if es(train_loss):
-            #     break
         return (loss_per_batch,preds_per_batch)
 
-
+    def take_move_mean(target,filter_array,mode):
+        mean_range = np.ones(filter_array) / filter_array
+        move_mean_x = np.convolve(target,mean_range,mode=mode)[:500]
+        return move_mean_x
 
     # グラフの作成
-    def show_raw_graph(y):
+    def show_raw_graph(x,before_a,after_a):
         plt.subplot(3,1,1)
-        plt.title("raw")
+        # plt.title("raw_data")
         plt.xlabel("t")
-        plt.xticks([50,100,150,200,250,300,350,400,450,500])
+        plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
+        # plt.xticks([220,230,240,250,260,270,280])
+        # plt.yticks([0,0.2,0.4,0.6,0.8,1.0])
+        plt.yticks([0,0.5,1.0])
         plt.ylabel("x(t)")
-        plt.plot(range(len(y)), y, linewidth=1,color="blue",label="row_data")
-        plt.legend(loc="lower left")
+        plt.plot(range(len(x)), x, linewidth=1.0,color="blue",label="{0}~{1}".format(before_a,after_a))
+        # plt.legend(loc="lower left")
 
     def show_graph_compare_raw_preds(answers,preds,picture_name):
-        plt.subplot(3,1,3)
-        plt.title("loss flow")
+        # plt.subplot(3,1,3)
+        # plt.title("compare_raw_pred")
         plt.xlabel("t")
         plt.ylabel("x(t)")
+        plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
+
+        # plt.yticks([0,0.2,0.4,0.6,0.8,1.0])
+        plt.yticks([0,0.5,1.0])
         plt.plot(range(len(answers)), answers, linewidth=1,color="blue",label="row_data")
         plt.plot(range(len(preds)),preds,linewidth=0.6,color="red",label="pred")
-        plt.legend(loc="lower left")
-        # fig.savefig("gru_pictures/pictures_neuron2/epochs_1000/batch_1/bidirectional/system_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
+        # plt.legend(loc="lower left")
 
-    def show_graph_loss_per_batch(loss_per_batch,picture_name,before_a,after_a,epochs):
+    def show_graph_loss_per_batch(loss_per_batch,i,before_a,after_a,epochs):
+        # plt.subplot(3,1,2)
         plt.subplot(3,1,2)
-        plt.title("compare raw and pred")
+        # title = "loss_flow"
+        # plt.title(title)
         plt.plot(range(len(loss_per_batch)),loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
-        plt.xlabel("i")
-        plt.xticks([50,100,150,200,250,300,350,400,450,500])
-        plt.ylabel("$E_i$")             # iを下付き文字に変換。
-        plt.legend(loc="lower right")
+        plt.xlabel("t")
+        plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
+        plt.ylabel("E(t)")
+        # plt.yticks([0.000,0.0005,0.001])
+        # plt.legend(loc="lower right")
         interval = 10
         end = loss_per_batch.shape[0]
         start = end // interval
-        xticks = np.append(0,np.linspace(start,end,interval))
-        plt.xticks(xticks)
-        # fig.savefig("gru_pictures/pictures_neuron2/epochs_1000/batch_1/bidirectional/change_point_{0}_epochs{1}_range0.01.png".format(picture_name,epochs))
 
 
-    def execute_all(picture_name,model,before_a=3.7,after_a=4):
+    def show_graph_move_mean_loss_per_batch(loss_per_batch,mean_range,i,before_a,after_a,epochs):
+        plt.subplot(3,1,3)
+        move_mean_value = take_move_mean(loss_per_batch,mean_range,"full")
+        plt.plot(range(len(move_mean_value)),move_mean_value,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
+        plt.xlabel("t")
+        plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
+        plt.ylabel("E(t)")
+        # plt.yticks([0.000,0.0005,0.001])
+
+
+    def execute_all(target,picture_name,i,model,before_a,after_a):
           # 隠れ層2ニューロンのモデル生成. (RNN(ニューロン数). 2: 凸凹幅大きい。 ←→ ニューロン数200: 凸凹幅小さい。)
 
         criterion = nn.MSELoss(reduction='mean')    # 損失関数: 平均二乗誤差
         optimizer = optimizers.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), amsgrad=True)     # 最適化手法
 
 
-        y,factors,answers = make_dataset(before_a,after_a)
+        x,factors,answers = make_dataset(target,before_a,after_a)
+        x,factors,answers = make_dataset(target,before_a,after_a)
+
         loss_per_batch,preds_per_batch = get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a)
-        show_raw_graph(y)
-        show_graph_compare_raw_preds(answers,preds_per_batch,picture_name)
-        show_graph_loss_per_batch(loss_per_batch,picture_name,before_a,after_a,epochs)
+
+        # plt.rcParams["font.size"] = 37
+        plt.rcParams["font.size"] = 24
+        # fig = plt.figure(figsize=(20.0,12.0/0.96))
+
+        show_raw_graph(x,before_a,after_a)
+        show_graph_loss_per_batch(loss_per_batch,i,before_a,after_a,epochs)
+        # show_graph_compare_raw_preds(answers,preds_per_batch,picture_name)
+        mean_range = 10
+        show_graph_move_mean_loss_per_batch(loss_per_batch,mean_range,i,before_a,after_a,epochs)
+
         plt.tight_layout()
-        ipdb.set_trace()
-        plt.show()
 
+        fig.savefig("test_dir/{}to{}_{}.png".format(before_a,after_a,epochs))
+        # plt.show()
 
-    model = MLP(1,4,1).to(device)
-    # model = RNN(2).to(device)
-    # model = LSTM(2).to(device)
-    # model = GRU(2).to(device)
-    execute_all(0,model,3.70,4.0)
+    # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
+    # params = [3.965]
+    params = [1]
+    for param in params:
+        # plt.rcParams["font.size"] = 5
+        fig = plt.figure(figsize=(16.0,8.0/0.96))
+        model2 = RNN(2,bidirection=True).to(device)
+
+        # execute_all("logistic",0,2,model2,param,4.0)
+        execute_all("henon",0,2,model2,param,1.4)
 
     # for i in range(1000):
+    #     plt.rcParams["font.size"] = 10
+    #     fig = plt.figure(figsize=(20.0,12.0/0.96))
     #     a_start = round(3.7 +(i / 1000),4)
     #     if (a_start > 4.0):
     #         break
     #     # model = MLP(1,4,1).to(device)
-    #     # model = RNN(2).to(device)
+    #     model = RNN(2,bidirection=True).to(device)
+    #     # model = RNN(2,bidirection=True).to(device)
     #     # model = LSTM(2).to(device)
-    #     model = GRU(2).to(device)
+    #     # model = GRU(2).to(device)
     #     execute_all(i,model,a_start,4.0)
 
     # for i in range(1000):
     #     plus_range = 0.1
+
+
     #     a_start = round(3.7+(i/10)+plus_range,4)
     #     a_end = round(a_start+plus_range,4)
     #     if(a_end>4.0):
     #         break
     #     execute_all(i,a_start,a_end)
 
-    # y = y_init
-    # params = [3.7, 3.8, 3.85, 3.9, 3.95, 3.99]
-    # for param in params:
-    #     y = set_y_params(y_init(),param,4)
-    #     plt.subplot(2,3,params.index(param)+1)
-    #     plt.plot(y,label="a = {0} → 4.0".format(param))
-    #     plt.legend(loc="lower right")
 
-    # y = set_y_params(y_init(),3.7,4)
-    # # plt.subplot(2,3,params.index(param)+1)
-    # plt.plot(y,label="a = {0} → 4.0".format(3.7))
-    # plt.legend(loc="lower right")
 
