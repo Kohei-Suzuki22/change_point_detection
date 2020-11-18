@@ -15,6 +15,7 @@ import ipdb
 import math
 from matplotlib import mathtext
 import pylab as plt
+import os
 mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
 
 
@@ -253,6 +254,7 @@ if __name__ == '__main__':
 
     def show_graph_compare_raw_preds(answers,preds):
         # plt.subplot(3,1,3)
+        plt.subplot(2,1,1)
         # plt.title("compare_raw_pred")
         plt.xlabel("t")
         plt.ylabel("x(t)")
@@ -266,7 +268,7 @@ if __name__ == '__main__':
 
     def show_graph_loss_per_batch(loss_per_batch,before_a,after_a,epochs):
         # plt.subplot(3,1,2)
-        plt.subplot(3,1,2)
+        plt.subplot(2,1,2)
         # title = "loss_flow"
         # plt.title(title)
         plt.plot(range(len(loss_per_batch)),loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
@@ -290,15 +292,14 @@ if __name__ == '__main__':
         # plt.yticks([0.000,0.0005,0.001])
 
 
-    def execute_all(target,model,neuron_num,before_a,after_a):
-          # 隠れ層2ニューロンのモデル生成. (RNN(ニューロン数). 2: 凸凹幅大きい。 ←→ ニューロン数200: 凸凹幅小さい。)
+    def execute_all(target,neuron_num,model,before_a,after_a,learning_rate=0.001):
+        # 隠れ層2ニューロンのモデル生成. (RNN(ニューロン数). 2: 凸凹幅大きい。 ←→ ニューロン数200: 凸凹幅小さい。)
 
         criterion = nn.MSELoss(reduction='mean')    # 損失関数: 平均二乗誤差
-        optimizer = optimizers.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), amsgrad=True)     # 最適化手法
+        optimizer = optimizers.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999), amsgrad=True)     # 最適化手法
 
 
         x,factors,answers = make_dataset(target,before_a,after_a)
-        # x,factors,answers = make_dataset(target,before_a,after_a)
 
         loss_per_batch,preds_per_batch = get_loss(factors,answers,model,criterion,optimizer,before_a,after_a)
 
@@ -306,30 +307,35 @@ if __name__ == '__main__':
         plt.rcParams["font.size"] = 24
         # fig = plt.figure(figsize=(20.0,12.0/0.96))
 
-        show_raw_graph(x,before_a,after_a)
+        # show_raw_graph(x,before_a,after_a)
         show_graph_loss_per_batch(loss_per_batch,before_a,after_a,epochs)
-        # show_graph_compare_raw_preds(answers,preds_per_batch)
+        show_graph_compare_raw_preds(answers,preds_per_batch)
         mean_range = 10
-        show_graph_move_mean_loss_per_batch(loss_per_batch,mean_range,before_a,after_a,epochs)
+        # show_graph_move_mean_loss_per_batch(loss_per_batch,mean_range,before_a,after_a,epochs)
 
         plt.tight_layout()
 
-        fig.savefig("henon_map/neuron{}/BRNN/{}to{}_{}.png".format(neuron_num,before_a,after_a,epochs))
+        dir_name = "henon_map/RNN/learning_rate{}/neuron{}".format(learning_rate,neuron_num)
+        # dir_name = "logistic_map/RNN/learning_rate{}/neuron{}".format(learning_rate,neuron_num)
+        os.makedirs(dir_name,exist_ok=True)
+        fig.savefig("{}/prediction_accuracy{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
+
         # plt.show()
 
     # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
-    params = [1.0,1.05,1.1,1.15,1.2,1.25,1.3,1.35,1.4]
-    # params = [1.0]
+    # params = [3.7]
+    params = [1.00,1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.40]
+    # params = [1.00]
     for param in params:
         # plt.rcParams["font.size"] = 5
-        neuron_num = 4
-        model = RNN(neuron_num,bidirection=True).to(device)
-
-        # execute_all("logistic",0,2,model,param,4.0)
-        neuron_nums = [4,8,16]
+        # neuron_nums = [2,4,8,16]
+        neuron_nums = [1]
         for neuron_num in neuron_nums:
+            model = RNN(neuron_num,bidirection=True).to(device)
+        # execute_all("logistic",0,2,model2,param,4.0)
             fig = plt.figure(figsize=(16.0,8.0/0.96))
-            execute_all("henon",model,neuron_num,param,1.4)
+            execute_all("henon",neuron_num,model,param,1.4,learning_rate=0.001)
+            # execute_all("logistic",neuron_num,model,param,4.0,learning_rate=0.001)
 
     # for i in range(1000):
     #     plt.rcParams["font.size"] = 10
