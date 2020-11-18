@@ -29,14 +29,14 @@ class RNN(nn.Module):
         if bidirection == True:
             self.l1 = nn.RNN(1, hidden_dim,batch_first=True,bidirectional=True)
 
-            self.l2 = nn.Linear(hidden_dim*2,hidden_dim*2)
-            self.a2 = nn.Tanh()
+            # self.l2 = nn.Linear(hidden_dim*2,hidden_dim*2)
+            # self.a2 = nn.Tanh()
 
-            self.l3 = nn.Linear(hidden_dim*2,hidden_dim*2)
-            self.a3 = nn.Tanh()
+            # self.l3 = nn.Linear(hidden_dim*2,hidden_dim*2)
+            # self.a3 = nn.Tanh()
 
-            self.l4 = nn.Linear(hidden_dim*2,hidden_dim*2)
-            self.a4 = nn.Tanh()
+            # self.l4 = nn.Linear(hidden_dim*2,hidden_dim*2)
+            # self.a4 = nn.Tanh()
 
             self.l5 = nn.Linear(hidden_dim*2, 1)
         elif bidirection == False:
@@ -49,18 +49,16 @@ class RNN(nn.Module):
         nn.init.xavier_normal_(self.l1.weight_ih_l0)
         nn.init.orthogonal_(self.l1.weight_hh_l0)
 
-        self.layers = [self.l1, self.l2, self.a2, self.l3, self.a3, self.l4, self.a4, self.l5]
-
+        # self.layers = [self.l1, self.l2, self.a2, self.l3, self.a3, self.l4, self.a4, self.l5]
+        self.layers = [self.l1,self.l5]
 
     # 順伝播
     def forward(self, x):
-
         for layer in self.layers:
             if isinstance(layer,torch.nn.modules.rnn.RNN):
                 x = layer(x)[0]
             else:
                 x = layer(x)
-
         return x
 
 class LSTM(nn.Module):
@@ -148,10 +146,11 @@ class HenonFunc():
         for t in range(500):
             if t < 250:
                 self.x = np.append(self.x,self.henon_func_x(t,self.before_a))
-                self.y = np.append(self.y,self.henon_func_x(t,self.before_a))
+                self.y = np.append(self.y,self.henon_func_y(t,self.before_a))
             else:
-                self.x = np.append(self.x,self.henon_func_x(t,self.before_a))
-                self.y = np.append(self.y,self.henon_func_x(t,self.before_a))
+                self.x = np.append(self.x,self.henon_func_x(t,self.after_a))
+                self.y = np.append(self.y,self.henon_func_y(t,self.after_a))
+
         return self.x
 
 
@@ -210,11 +209,11 @@ if __name__ == '__main__':
         return loss, preds
 
 
-    epochs = 1
+    epochs = 1000
     batch_size = 1
 
     # 学習実行 & 学習損失GET.
-    def get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a):
+    def get_loss(factors,answers,model,criterion,optimizer,before_a,after_a):
         n_batches = factors.shape[0] // batch_size
         hist = {'loss': []}
         for epoch in range(epochs):
@@ -247,12 +246,12 @@ if __name__ == '__main__':
         plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
         # plt.xticks([220,230,240,250,260,270,280])
         # plt.yticks([0,0.2,0.4,0.6,0.8,1.0])
-        plt.yticks([0,0.5,1.0])
+        # plt.yticks([0,0.5,1.0])
         plt.ylabel("x(t)")
         plt.plot(range(len(x)), x, linewidth=1.0,color="blue",label="{0}~{1}".format(before_a,after_a))
         # plt.legend(loc="lower left")
 
-    def show_graph_compare_raw_preds(answers,preds,picture_name):
+    def show_graph_compare_raw_preds(answers,preds):
         # plt.subplot(3,1,3)
         # plt.title("compare_raw_pred")
         plt.xlabel("t")
@@ -260,12 +259,12 @@ if __name__ == '__main__':
         plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
 
         # plt.yticks([0,0.2,0.4,0.6,0.8,1.0])
-        plt.yticks([0,0.5,1.0])
+        # plt.yticks([0,0.5,1.0])
         plt.plot(range(len(answers)), answers, linewidth=1,color="blue",label="row_data")
         plt.plot(range(len(preds)),preds,linewidth=0.6,color="red",label="pred")
         # plt.legend(loc="lower left")
 
-    def show_graph_loss_per_batch(loss_per_batch,i,before_a,after_a,epochs):
+    def show_graph_loss_per_batch(loss_per_batch,before_a,after_a,epochs):
         # plt.subplot(3,1,2)
         plt.subplot(3,1,2)
         # title = "loss_flow"
@@ -281,7 +280,7 @@ if __name__ == '__main__':
         start = end // interval
 
 
-    def show_graph_move_mean_loss_per_batch(loss_per_batch,mean_range,i,before_a,after_a,epochs):
+    def show_graph_move_mean_loss_per_batch(loss_per_batch,mean_range,before_a,after_a,epochs):
         plt.subplot(3,1,3)
         move_mean_value = take_move_mean(loss_per_batch,mean_range,"full")
         plt.plot(range(len(move_mean_value)),move_mean_value,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
@@ -291,7 +290,7 @@ if __name__ == '__main__':
         # plt.yticks([0.000,0.0005,0.001])
 
 
-    def execute_all(target,picture_name,i,model,before_a,after_a):
+    def execute_all(target,model,neuron_num,before_a,after_a):
           # 隠れ層2ニューロンのモデル生成. (RNN(ニューロン数). 2: 凸凹幅大きい。 ←→ ニューロン数200: 凸凹幅小さい。)
 
         criterion = nn.MSELoss(reduction='mean')    # 損失関数: 平均二乗誤差
@@ -299,35 +298,38 @@ if __name__ == '__main__':
 
 
         x,factors,answers = make_dataset(target,before_a,after_a)
-        x,factors,answers = make_dataset(target,before_a,after_a)
+        # x,factors,answers = make_dataset(target,before_a,after_a)
 
-        loss_per_batch,preds_per_batch = get_loss(factors,answers,model,criterion,optimizer,picture_name,before_a,after_a)
+        loss_per_batch,preds_per_batch = get_loss(factors,answers,model,criterion,optimizer,before_a,after_a)
 
         # plt.rcParams["font.size"] = 37
         plt.rcParams["font.size"] = 24
         # fig = plt.figure(figsize=(20.0,12.0/0.96))
 
         show_raw_graph(x,before_a,after_a)
-        show_graph_loss_per_batch(loss_per_batch,i,before_a,after_a,epochs)
-        # show_graph_compare_raw_preds(answers,preds_per_batch,picture_name)
+        show_graph_loss_per_batch(loss_per_batch,before_a,after_a,epochs)
+        # show_graph_compare_raw_preds(answers,preds_per_batch)
         mean_range = 10
-        show_graph_move_mean_loss_per_batch(loss_per_batch,mean_range,i,before_a,after_a,epochs)
+        show_graph_move_mean_loss_per_batch(loss_per_batch,mean_range,before_a,after_a,epochs)
 
         plt.tight_layout()
 
-        fig.savefig("test_dir/{}to{}_{}.png".format(before_a,after_a,epochs))
+        fig.savefig("henon_map/neuron{}/BRNN/{}to{}_{}.png".format(neuron_num,before_a,after_a,epochs))
         # plt.show()
 
     # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
-    # params = [3.965]
-    params = [1]
+    params = [1.0,1.05,1.1,1.15,1.2,1.25,1.3,1.35,1.4]
+    # params = [1.0]
     for param in params:
         # plt.rcParams["font.size"] = 5
-        fig = plt.figure(figsize=(16.0,8.0/0.96))
-        model2 = RNN(2,bidirection=True).to(device)
+        neuron_num = 4
+        model = RNN(neuron_num,bidirection=True).to(device)
 
-        # execute_all("logistic",0,2,model2,param,4.0)
-        execute_all("henon",0,2,model2,param,1.4)
+        # execute_all("logistic",0,2,model,param,4.0)
+        neuron_nums = [4,8,16]
+        for neuron_num in neuron_nums:
+            fig = plt.figure(figsize=(16.0,8.0/0.96))
+            execute_all("henon",model,neuron_num,param,1.4)
 
     # for i in range(1000):
     #     plt.rcParams["font.size"] = 10
@@ -340,7 +342,7 @@ if __name__ == '__main__':
     #     # model = RNN(2,bidirection=True).to(device)
     #     # model = LSTM(2).to(device)
     #     # model = GRU(2).to(device)
-    #     execute_all(i,model,a_start,4.0)
+    #     execute_all("henon",model,a_start,4.0)
 
     # for i in range(1000):
     #     plus_range = 0.1
@@ -350,7 +352,7 @@ if __name__ == '__main__':
     #     a_end = round(a_start+plus_range,4)
     #     if(a_end>4.0):
     #         break
-    #     execute_all(i,a_start,a_end)
+    #     execute_all("henon",a_start,a_end)
 
 
 
