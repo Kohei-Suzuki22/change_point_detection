@@ -25,16 +25,25 @@ mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
 
 
 class RNN(nn.Module):
-    def __init__(self, hidden_dim,bidirection=False):
+    def __init__(self,input_dim,hidden_dim,num_layers=1,activation='tanh',bidirection=False):
         super().__init__()
         if bidirection == True:
-            self.l1 = nn.RNN(1, hidden_dim,batch_first=True,bidirectional=True)
+            # nn.RNN(input_size,hidden_size,num_layers=1,nonlinearity='tanh',bias=True,batch_first=False,dropout=0,bidirectional=False)
+            # 活性化関数(nonlinearity)は tanh・relu のどちらかのみ。
+            self.l1 = nn.RNN(input_dim, hidden_dim,num_layers=num_layers,nonlinearity=activation,batch_first=True,bidirectional=True)
+            # self.l1 = nn.RNN(affect_length, hidden_dim,num_layers=5,nonlinearity='tanh',batch_first=True,bidirectional=True)
+
+            # self.l1 = nn.RNN(affect_length, hidden_dim,num_layers=5,nonlinearity='relu',batch_first=True,bidirectional=True)
+
 
             # self.l2 = nn.Linear(hidden_dim*2,hidden_dim*2)
             # self.a2 = nn.Tanh()
 
             # self.l3 = nn.Linear(hidden_dim*2,hidden_dim*2)
             # self.a3 = nn.Tanh()
+
+            # self.l4 = nn.Linear(hidden_dim*2,hidden_dim*2)
+            # self.a4 = nn.Tanh()
 
             # self.l4 = nn.Linear(hidden_dim*2,hidden_dim*2)
             # self.a4 = nn.Tanh()
@@ -47,19 +56,31 @@ class RNN(nn.Module):
         # 入力層(第一層) →  入力:1,出力:hidden_dim
         # 出力層(第二層) →  入力:hidden_dim,出力:1
 
-        nn.init.xavier_normal_(self.l1.weight_ih_l0)
-        nn.init.orthogonal_(self.l1.weight_hh_l0)
+
+        # ザビエル正規分布(ノード数nに対して平均0・標準偏差1/√n)を用いた重みの初期化 → ランダムではなく学習に最適な重みを設定
+        # 標準偏差 * gainで初期化を行う
+        # gainは基本的に5/3にすることが多い → 層が増えたときに安定しやすいと言われている。
+        nn.init.xavier_normal_(self.l1.weight_ih_l0,gain=5/3)       # weight_ih: 入力層 → 隠れ層 に対する重みの初期化
+
+        # 直行行列を用いた重みの初期化(通常の重みの初期化手法を用いるとRNNではオーバーフローを発生させる可能性が高い)
+        # weight_hh: 隠れ層 → 隠れ層    に対する重みの初期化
+        # l0: 隠れ層1層目の重みの初期化
+        # l1: 隠れ層2層目の重みの初期化
+        nn.init.orthogonal_(self.l1.weight_hh_l0,gain=1)
 
         # self.layers = [self.l1, self.l2, self.a2, self.l3, self.a3, self.l4, self.a4, self.l5]
+        # self.layers = [self.l1, self.l2, self.a2, self.l5]
         self.layers = [self.l1,self.l5]
 
     # 順伝播
     def forward(self, x):
+        x = x.reshape(1,1,affect_length)
         for layer in self.layers:
             if isinstance(layer,torch.nn.modules.rnn.RNN):
                 x = layer(x)[0]
             else:
                 x = layer(x)
+
         return x
 
 class LSTM(nn.Module):
@@ -121,7 +142,7 @@ class LogisticFunc():
             return a * self.x[t] * (1 - self.x[t])
 
     def make_time_series(self):
-        for t in range(500):
+        for t in range(500+(affect_length-1)):
             if t < 250:
                 self.x = np.append(self.x,self.logistic_func(t,self.before_a))
             else:
@@ -144,7 +165,7 @@ class HenonFunc():
         return self.b * self.x[t]
 
     def make_time_series(self):
-        for t in range(500):
+        for t in range(500+(affect_length-1)):
             if t < 250:
                 self.x = np.append(self.x,self.henon_func_x(t,self.before_a))
                 self.y = np.append(self.y,self.henon_func_y(t,self.before_a))
@@ -165,7 +186,9 @@ if __name__ == '__main__':
     '''
     1. データの準備
     '''
-    affect_length = 1
+    affect_length = 2
+    batch_size = 1
+    epochs = 300
 
 
     def factors_answers_init():
@@ -210,8 +233,6 @@ if __name__ == '__main__':
         return loss, preds
 
 
-    epochs = 1000
-    batch_size = 1
 
     # 学習実行 & 学習損失GET.
     def get_loss(factors,answers,model,criterion,optimizer,before_a,after_a):
@@ -241,7 +262,7 @@ if __name__ == '__main__':
 
     # グラフの作成
     def show_raw_graph(x,before_a,after_a):
-        plt.subplot(3,1,1)
+        plt.subplot(1,1,1)
         # plt.title("raw_data")
         plt.xlabel("t")
         plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
@@ -292,15 +313,13 @@ if __name__ == '__main__':
         # plt.yticks([0.000,0.0005,0.001])
 
 
-    def execute_all(target,neuron_num,model,before_a,after_a,learning_rate=0.001):
+    def execute_all(target,model,neuron_num,num_layers,activation,before_a,after_a,learning_rate=0.001):
         # 隠れ層2ニューロンのモデル生成. (RNN(ニューロン数). 2: 凸凹幅大きい。 ←→ ニューロン数200: 凸凹幅小さい。)
 
         criterion = nn.MSELoss(reduction='mean')    # 損失関数: 平均二乗誤差
         optimizer = optimizers.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999), amsgrad=True)     # 最適化手法
 
-
         x,factors,answers = make_dataset(target,before_a,after_a)
-
         loss_per_batch,preds_per_batch = get_loss(factors,answers,model,criterion,optimizer,before_a,after_a)
 
         # plt.rcParams["font.size"] = 37
@@ -315,26 +334,30 @@ if __name__ == '__main__':
 
         plt.tight_layout()
 
-        dir_name = "henon_map/RNN/learning_rate{}/neuron{}".format(learning_rate,neuron_num)
+        # dir_name = "henon_map/BRNN/learning_rate{}/affect_length{}/neuron{}".format(learning_rate,affect_length,neuron_num)
+        dir_name = "henon_map/BRNN/learning_rate{}/affect_length{}/neuron{}/num_layers{}/activation_{}".format(learning_rate,affect_length,neuron_num,num_layers,activation)
         # dir_name = "logistic_map/RNN/learning_rate{}/neuron{}".format(learning_rate,neuron_num)
         os.makedirs(dir_name,exist_ok=True)
         fig.savefig("{}/prediction_accuracy{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
+        # fig.savefig("test_dir/prediction_accuracy{}to{}_{}epochs.png".format(affect_length,before_a,after_a,epochs))
+        # fig.savefig("{}/raw_data{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
 
         # plt.show()
 
     # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
     # params = [3.7]
-    params = [1.00,1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.40]
+    params = [1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.40]
     # params = [1.00]
+    neuron_nums = [8]
+    num_layers_set = [1,3,5,7]
     for param in params:
         # plt.rcParams["font.size"] = 5
         # neuron_nums = [2,4,8,16]
-        neuron_nums = [1]
         for neuron_num in neuron_nums:
-            model = RNN(neuron_num,bidirection=True).to(device)
-        # execute_all("logistic",0,2,model2,param,4.0)
-            fig = plt.figure(figsize=(16.0,8.0/0.96))
-            execute_all("henon",neuron_num,model,param,1.4,learning_rate=0.001)
+            for num_layers in num_layers_set:
+                model = RNN(affect_length,neuron_num,num_layers=num_layers,activation='relu',bidirection=True).to(device)
+                fig = plt.figure(figsize=(16.0,8.0/0.96))
+                execute_all("henon",model,neuron_num,num_layers,'relu',param,1.4,learning_rate=0.001)
             # execute_all("logistic",neuron_num,model,param,4.0,learning_rate=0.001)
 
     # for i in range(1000):
