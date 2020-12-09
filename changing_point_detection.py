@@ -217,44 +217,58 @@ def get_loss(factors,answers,model,criterion,optimizer,batch_size,affect_length,
         print('epoch: {}, loss: {:.3}'.format(epoch+1,train_loss))
     return (loss_per_batch,preds_per_batch)
 
-def take_move_mean(target,filter_array,mode):
-    mean_range = np.ones(filter_array) / filter_array
-    move_mean_x = np.convolve(target,mean_range,mode=mode)[:500]
-    return move_mean_x
+
 
 # グラフの作成
-def show_graph_raw(x,before_a,after_a):
-    plt.subplot(1,1,1)
-    plt.xlabel("t")
-    plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
-    plt.ylabel("x(t)")
-    plt.plot(range(len(x)), x, linewidth=1.0,color="blue",label="{0}~{1}".format(before_a,after_a))
+class Show_graph():
 
-def show_graph_compare_raw_preds(answers,preds,affect_length):
-    plt.subplot(3,1,1)
-    plt.xlabel("t")
-    plt.xticks([affect_length,50,100,150,200,250,300,350,400,450,500])
-    plt.ylabel("x(t)")
-    plt.plot(range(affect_length,len(answers)+affect_length), answers, linewidth=1,color="blue",label="row_data")
-    plt.plot(range(affect_length,len(preds)+affect_length),preds,linewidth=0.6,color="red",label="pred")
+    def __init__(self,x,before_a,after_a,answers,preds,loss_per_batch,epochs,affect_length):
+        self.x = x
+        self.before_a = before_a
+        self.after_a = after_a
+        self.answers = answers
+        self.preds = preds
+        self.loss_per_batch = loss_per_batch
+        self.epochs = epochs
+        self.affect_length = affect_length
 
-def show_graph_loss_per_batch(loss_per_batch,affect_length,before_a,after_a,epochs):
-    plt.subplot(3,1,2)
-    plt.plot(range(affect_length,len(loss_per_batch)+affect_length),loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
-    plt.xlabel("t")
-    plt.xticks([affect_length,50,100,150,200,250,300,350,400,450,500])
-    plt.ylabel("E(t)")
-    interval = 10
-    end = loss_per_batch.shape[0]
-    start = end // interval
+    def show_raw(self):
+        plt.subplot(1,1,1)
+        plt.xlabel("t")
+        plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
+        plt.ylabel("x(t)")
+        plt.plot(range(len(self.x)), self.x, linewidth=1.0,color="blue",label="{0}~{1}".format(self.before_a,self.after_a))
 
-def show_graph_move_mean_loss_per_batch(loss_per_batch,affect_length,mean_range,before_a,after_a,epochs):
-    plt.subplot(3,1,3)
-    move_mean_value = take_move_mean(loss_per_batch,mean_range,"full")
-    plt.plot(range(affect_length,len(move_mean_value)+affect_length),move_mean_value,color="blue",label="{0}~{1} (epochs={2})".format(before_a,after_a,epochs))
-    plt.xlabel("t")
-    plt.xticks([affect_length,50,100,150,200,250,300,350,400,450,500])
-    plt.ylabel("E(t)")
+    def show_compare_raw_preds(self):
+        plt.subplot(3,1,1)
+        plt.xlabel("t")
+        plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
+        plt.ylabel("x(t)")
+        plt.plot(range(self.affect_length,len(self.answers)+self.affect_length), self.answers, linewidth=1,color="blue",label="row_data")
+        plt.plot(range(self.affect_length,len(self.preds)+self.affect_length),self.preds,linewidth=0.6,color="red",label="pred")
+
+    def show_loss_per_batch(self):
+        plt.subplot(3,1,2)
+        plt.plot(range(self.affect_length,len(self.loss_per_batch)+self.affect_length),self.loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(self.before_a,self.after_a,self.epochs))
+        plt.xlabel("t")
+        plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
+        plt.ylabel("E(t)")
+        interval = 10
+        end = self.loss_per_batch.shape[0]
+        start = end // interval
+
+    def show_move_mean_loss_per_batch(self,mean_range=10):
+        plt.subplot(3,1,3)
+        move_mean_value = self.take_move_mean(self.loss_per_batch,mean_range,"full")
+        plt.plot(range(self.affect_length,len(move_mean_value)+self.affect_length),move_mean_value,color="blue",label="{0}~{1} (epochs={2})".format(self.before_a,self.after_a,self.epochs))
+        plt.xlabel("t")
+        plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
+        plt.ylabel("E(t)")
+
+    def take_move_mean(self,loss,filter_array,mode):
+        mean_range = np.ones(filter_array) / filter_array
+        move_mean_x = np.convolve(loss,mean_range,mode=mode)[:500]
+        return move_mean_x
 
 
 def execute_all(target,model,neuron_num,num_layers,activation,batch_size,affect_length,epochs,before_a,after_a,learning_rate=0.001):
@@ -266,10 +280,10 @@ def execute_all(target,model,neuron_num,num_layers,activation,batch_size,affect_
     plt.rcParams["font.size"] = 24
     # fig = plt.figure(figsize=(20.0,12.0/0.96))
     # show_graph_raw(x,before_a,after_a)
-    show_graph_compare_raw_preds(answers,preds_per_batch,affect_length)
-    show_graph_loss_per_batch(loss_per_batch,affect_length,before_a,after_a,epochs)
-    mean_range = 10
-    show_graph_move_mean_loss_per_batch(loss_per_batch,affect_length,mean_range,before_a,after_a,epochs)
+    graph = Show_graph(x,before_a,after_a,answers,preds_per_batch,loss_per_batch,epochs,affect_length)
+    graph.show_compare_raw_preds()
+    graph.show_loss_per_batch()
+    graph.show_move_mean_loss_per_batch()
     plt.tight_layout()
 
     dir_name = "{}/BRNN/learning_rate{}/affect_length{}/neuron{}/num_layers{}/activation_{}".format(target,learning_rate,affect_length,neuron_num,num_layers,activation)
@@ -290,9 +304,9 @@ if __name__ == '__main__':
     epochs = 300
 
 
-    # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
+    params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
     # params = [3.4]
-    params = [1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
+    # params = [1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
     # params = [1.35,1.36,1.37,1.38,1.39,1.40]
 
     # params = [1.00]
@@ -311,5 +325,5 @@ if __name__ == '__main__':
                     # model = GRU(affect_length,neuron_num,num_layers=num_layers,bidirectional=True).to(device)
                     # model = MLP(affect_length,neuron_num,num_layers)
                     fig = plt.figure(figsize=(16.0,8.0/0.96))
-                    execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.4,learning_rate=0.001)
-                    # execute_all("logistic",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,4.0,learning_rate=0.001)
+                    # execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.4,learning_rate=0.001)
+                    execute_all("logistic",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,4.0,learning_rate=0.001)
