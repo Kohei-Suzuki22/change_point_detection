@@ -1,21 +1,19 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import mathtext
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
+from sklearn.metrics import mean_squared_error
 import torch
 import torch.nn as nn
 import torch.optim as optimizers
-from torchsample.callbacks import EarlyStopping
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import mean_squared_error
 import time
 import statistics
 import ipdb
 import math
-from matplotlib import mathtext
 import pylab as plt
 import os
+import pytorch_lightning as pl
 mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
 
 
@@ -201,6 +199,10 @@ def train_step(factors,answers,model,criterion,optimizer,batch_size,affect_lengt
 def get_loss(factors,answers,model,criterion,optimizer,batch_size,affect_length,epochs,before_a,after_a):
     n_batches = factors.shape[0] // batch_size
     hist = {'loss': []}
+    min_train_loss  = np.Inf
+    n_epochs_stop = 20
+    epochs_no_improve = 0
+
     for epoch in range(epochs):
         train_loss = 0.
         loss_per_batch = np.array([])
@@ -213,9 +215,25 @@ def get_loss(factors,answers,model,criterion,optimizer,batch_size,affect_length,
             loss_per_batch = np.append(loss_per_batch,loss.data)
             preds_per_batch = np.append(preds_per_batch,preds.data)
         train_loss /= n_batches
-        hist['loss'].append(train_loss)
-        print('epoch: {}, loss: {:.3}'.format(epoch+1,train_loss))
-    return (loss_per_batch,preds_per_batch)
+        train_loss = np.round(train_loss.numpy(),5)  #少数第6桁目を四捨五入. 5桁目まで表示
+
+        if train_loss < min_train_loss:
+            min_train_loss = train_loss
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+
+        print('epoch: {}, loss: {:.5}'.format(epoch+1,train_loss))
+
+        if (epoch > n_epochs_stop) and (epochs_no_improve >= n_epochs_stop):
+            print("Early Stopping")
+            epochs = epoch+1
+            break
+        else:
+            print("epochs_no_improve = {}".format(epochs_no_improve))
+            continue
+
+    return (loss_per_batch,preds_per_batch,epochs)
 
 
 
@@ -275,7 +293,7 @@ def execute_all(target,model,neuron_num,num_layers,activation,batch_size,affect_
     criterion = nn.MSELoss(reduction='mean')    # 損失関数: 平均二乗誤差
     optimizer = optimizers.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999), amsgrad=True)     # 最適化手法Adam
     x,factors,answers = make_dataset(target,affect_length,batch_size,before_a,after_a)
-    loss_per_batch,preds_per_batch = get_loss(factors,answers,model,criterion,optimizer,batch_size,affect_length,epochs,before_a,after_a)
+    loss_per_batch,preds_per_batch,epochs = get_loss(factors,answers,model,criterion,optimizer,batch_size,affect_length,epochs,before_a,after_a)
     # plt.rcParams["font.size"] = 37
     plt.rcParams["font.size"] = 24
     # fig = plt.figure(figsize=(20.0,12.0/0.96))
@@ -301,29 +319,29 @@ if __name__ == '__main__':
 
     # affect_length = 10
     batch_size = 1
-    epochs = 300
+    epochs = 1000
 
 
-    params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
+    # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
     # params = [3.4]
     # params = [1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
     # params = [1.35,1.36,1.37,1.38,1.39,1.40]
+    params = [1.00]
 
     # params = [1.00]
     # neuron_nums = [2,4,8,16]
     neuron_nums = [8]
     # num_layers_set = [1,3,5,7]
-    num_layers_set = [1,2,3]
-    affect_length_set = [1,2,3,4,5,6,7,8,9,10]
+    # num_layers_set = [1,2,3]
+    num_layers_set = [2]
+    # affect_length_set = [1,2,3,4,5,6,7,8,9,10]
+    affect_length_set = [2]
     for affect_length in affect_length_set:
         for param in params:
             # plt.rcParams["font.size"] = 5
             for neuron_num in neuron_nums:
                 for num_layers in num_layers_set:
                     model = RNN(affect_length,neuron_num,num_layers=num_layers,activation='tanh',bidirectional=True).to(device)
-                    # model = LSTM(affect_length,neuron_num,num_layers=num_layers,bidirectional=True).to(device)
-                    # model = GRU(affect_length,neuron_num,num_layers=num_layers,bidirectional=True).to(device)
-                    # model = MLP(affect_length,neuron_num,num_layers)
                     fig = plt.figure(figsize=(16.0,8.0/0.96))
-                    # execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.4,learning_rate=0.001)
-                    execute_all("logistic",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,4.0,learning_rate=0.001)
+                    execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.4,learning_rate=0.001)
+                    # execute_all("logistic",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,4.0,learning_rate=0.001)
