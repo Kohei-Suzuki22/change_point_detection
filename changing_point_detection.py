@@ -7,16 +7,11 @@ from sklearn.metrics import mean_squared_error
 import torch
 import torch.nn as nn
 import torch.optim as optimizers
-import time
-import statistics
 import ipdb
-import math
-import pylab as plt
 import os
-import pytorch_lightning as pl
 mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
 
-
+# ipdb.set_trace()
 # plt.rcParams["font.size"] = 10
 # fig = plt.figure(figsize=(20.0,12.0/0.96))
 
@@ -200,7 +195,7 @@ def get_loss(factors,answers,model,criterion,optimizer,batch_size,affect_length,
     n_batches = factors.shape[0] // batch_size
     hist = {'loss': []}
     min_train_loss  = np.Inf
-    n_epochs_stop = 20
+    n_epochs_stop = 30
     epochs_no_improve = 0
 
     for epoch in range(epochs):
@@ -326,7 +321,7 @@ if __name__ == '__main__':
     # params = [3.4]
     # params = [1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
     # params = [1.35,1.36,1.37,1.38,1.39,1.40]
-    params = [1.00]
+    params = [1.35]
 
     # params = [1.00]
     # neuron_nums = [2,4,8,16]
