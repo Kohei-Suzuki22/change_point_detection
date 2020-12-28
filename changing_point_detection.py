@@ -162,11 +162,11 @@ def set_factors_answers(x,factors,answers,affect_length,batch_size):
     answers = answers.reshape(-1,1)         # .shape: (500,1)
     return (factors,answers)
 
-def make_dataset(target,affect_length,batch_size,before_a,after_a):
+def make_dataset(target_map,affect_length,batch_size,before_a,after_a):
     factors,answers = factors_answers_init()
-    if target == "logistic":
+    if target_map == "logistic":
         func = LogisticFunc(before_a,after_a)
-    elif target == "henon":
+    elif target_map == "henon":
         func = HenonFunc(0.3,before_a,after_a)
     x = func.make_time_series()
     factors,answers = set_factors_answers(x,factors,answers,affect_length,batch_size)
@@ -212,13 +212,15 @@ def get_loss(factors,answers,model,criterion,optimizer,batch_size,affect_length,
         train_loss /= n_batches
         train_loss = np.round(train_loss.numpy(),5)  #少数第6桁目を四捨五入. 5桁目まで表示
 
+        print('epoch: {}, loss: {:.5}'.format(epoch+1,train_loss))
+
+
         if train_loss < min_train_loss:
             min_train_loss = train_loss
             epochs_no_improve = 0
         else:
             epochs_no_improve += 1
 
-        print('epoch: {}, loss: {:.5}'.format(epoch+1,train_loss))
 
         if (epoch > n_epochs_stop) and (epochs_no_improve >= n_epochs_stop):
             print("Early Stopping")
@@ -245,7 +247,7 @@ class Show_graph():
         self.epochs = epochs
         self.affect_length = affect_length
 
-    def show_raw(self):
+    def show_raw(self,target_map):
         plt.subplot(1,1,1)
         plt.xlabel("t")
         plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
@@ -261,7 +263,7 @@ class Show_graph():
         plt.plot(range(self.affect_length,len(self.preds)+self.affect_length),self.preds,linewidth=0.6,color="red",label="pred")
 
     def show_loss_per_batch(self):
-        plt.subplot(3,1,2)
+        # plt.subplot(3,1,2)
         plt.plot(range(self.affect_length,len(self.loss_per_batch)+self.affect_length),self.loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(self.before_a,self.after_a,self.epochs))
         plt.xlabel("t")
         plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
@@ -284,25 +286,25 @@ class Show_graph():
         return move_mean_x
 
 
-def execute_all(target,model,neuron_num,num_layers,activation,batch_size,affect_length,epochs,before_a,after_a,learning_rate=0.001):
+def execute_all(target_map,model,neuron_num,num_layers,activation,batch_size,affect_length,epochs,before_a,after_a,learning_rate=0.001):
     criterion = nn.MSELoss(reduction='mean')    # 損失関数: 平均二乗誤差
     optimizer = optimizers.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999), amsgrad=True)     # 最適化手法Adam
-    x,factors,answers = make_dataset(target,affect_length,batch_size,before_a,after_a)
+    x,factors,answers = make_dataset(target_map,affect_length,batch_size,before_a,after_a)
     loss_per_batch,preds_per_batch,epochs = get_loss(factors,answers,model,criterion,optimizer,batch_size,affect_length,epochs,before_a,after_a)
-    # plt.rcParams["font.size"] = 37
-    plt.rcParams["font.size"] = 24
+    plt.rcParams["font.size"] = 37
+    # plt.rcParams["font.size"] = 24
     # fig = plt.figure(figsize=(20.0,12.0/0.96))
-    # show_graph_raw(x,before_a,after_a)
     graph = Show_graph(x,before_a,after_a,answers,preds_per_batch,loss_per_batch,epochs,affect_length)
-    graph.show_compare_raw_preds()
-    graph.show_loss_per_batch()
-    graph.show_move_mean_loss_per_batch()
+    graph.show_raw(target_map)
+    # graph.show_compare_raw_preds()
+    # graph.show_loss_per_batch()
+    # graph.show_move_mean_loss_per_batch()
     plt.tight_layout()
 
-    dir_name = "{}/BRNN/learning_rate{}/affect_length{}/neuron{}/num_layers{}/activation_{}".format(target,learning_rate,affect_length,neuron_num,num_layers,activation)
-    os.makedirs(dir_name,exist_ok=True)
-    fig.savefig("{}/prediction_accuracy{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
-    # fig.savefig("test_dir/prediction_accuracy{}to{}_{}epochs.png".format(affect_length,before_a,after_a,epochs))
+    # dir_name = "{}/BRNN/learning_rate{}/affect_length{}/neuron{}/num_layers{}/activation_{}".format(target_map,learning_rate,affect_length,neuron_num,num_layers,activation)
+    # os.makedirs(dir_name,exist_ok=True)
+    # fig.savefig("{}/prediction_accuracy{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
+    fig.savefig("test_dir/raw_logistic{}to{}_{}epochs.png".format(before_a,after_a,epochs))
     # fig.savefig("{}/raw_data{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
     # plt.show()
 
@@ -314,23 +316,22 @@ if __name__ == '__main__':
 
     # affect_length = 10
     batch_size = 1
-    epochs = 1000
+    epochs = 1
 
 
     # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
-    # params = [3.4]
+    params = [3.7]
     # params = [1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
     # params = [1.35,1.36,1.37,1.38,1.39,1.40]
-    params = [1.35]
-
+    # params = [1.35]
     # params = [1.00]
+
     # neuron_nums = [2,4,8,16]
     neuron_nums = [8]
-    # num_layers_set = [1,3,5,7]
     # num_layers_set = [1,2,3]
     num_layers_set = [2]
-    # affect_length_set = [1,2,3,4,5,6,7,8,9,10]
     affect_length_set = [2]
+    # affect_length_set = [1,2,3,4,5]
     for affect_length in affect_length_set:
         for param in params:
             # plt.rcParams["font.size"] = 5
@@ -338,5 +339,5 @@ if __name__ == '__main__':
                 for num_layers in num_layers_set:
                     model = RNN(affect_length,neuron_num,num_layers=num_layers,activation='tanh',bidirectional=True).to(device)
                     fig = plt.figure(figsize=(16.0,8.0/0.96))
-                    execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.4,learning_rate=0.001)
-                    # execute_all("logistic",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,4.0,learning_rate=0.001)
+                    # execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.4,learning_rate=0.001)
+                    execute_all("logistic",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,4.0,learning_rate=0.001)
