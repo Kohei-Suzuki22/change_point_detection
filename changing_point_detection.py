@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import mathtext
+from matplotlib.colors import ListedColormap, BoundaryNorm
+from matplotlib.collections import LineCollection
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 from sklearn.metrics import mean_squared_error
@@ -9,11 +11,9 @@ import torch.nn as nn
 import torch.optim as optimizers
 import ipdb
 import os
+import csv
 mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
 
-# ipdb.set_trace()
-# plt.rcParams["font.size"] = 10
-# fig = plt.figure(figsize=(20.0,12.0/0.96))
 
 
 class RNN_parent(nn.Module):
@@ -196,7 +196,7 @@ def get_loss(factors,answers,model,criterion,optimizer,batch_size,affect_length,
     hist = {'loss': []}
     min_train_loss  = np.Inf
     n_epochs_stop = 30
-    epochs_no_improve = 0
+    epochs_no_improve_count = 0
 
     for epoch in range(epochs):
         train_loss = 0.
@@ -217,22 +217,34 @@ def get_loss(factors,answers,model,criterion,optimizer,batch_size,affect_length,
 
         if train_loss < min_train_loss:
             min_train_loss = train_loss
-            epochs_no_improve = 0
+            epochs_no_improve_count = 0
         else:
-            epochs_no_improve += 1
+            epochs_no_improve_count += 1
 
 
-        if (epoch > n_epochs_stop) and (epochs_no_improve >= n_epochs_stop):
+        if (epoch > n_epochs_stop) and (epochs_no_improve_count >= n_epochs_stop):
             print("Early Stopping")
             epochs = epoch+1
             break
         else:
-            print("epochs_no_improve = {}".format(epochs_no_improve))
+            print("epochs_no_improve_count = {}".format(epochs_no_improve_count))
             continue
 
     return (loss_per_batch,preds_per_batch,epochs)
 
+def take_move_mean(loss,filter_array=10,mode="full"):
+    mean_range = np.ones(filter_array) / filter_array
+    move_mean_x = np.convolve(loss,mean_range,mode=mode)[:500]
+    return move_mean_x
 
+def take_gradient(loss):
+    d_loss = np.ediff1d(loss,to_begin=0)
+    return d_loss
+
+def output_csv(target_array_data,file_name):
+    with open("./num_data/{}.csv".format(file_name),"a") as f:
+        write = csv.writer(f)
+        write.writerow(target_array_data)
 
 # グラフの作成
 class Show_graph():
@@ -251,7 +263,10 @@ class Show_graph():
         plt.subplot(1,1,1)
         plt.xlabel("t")
         plt.xticks([0,50,100,150,200,250,300,350,400,450,500])
-        plt.ylabel("x(t)")
+        if target_map == "logistic":
+            plt.ylabel("x(t)")
+        elif target_map == "henon":
+            plt.ylabel("α(t)")
         plt.plot(range(len(self.x)), self.x, linewidth=1.0,color="blue",label="{0}~{1}".format(self.before_a,self.after_a))
 
     def show_compare_raw_preds(self):
@@ -279,11 +294,14 @@ class Show_graph():
         plt.xlabel("t")
         plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
         plt.ylabel("E(t)")
-
-    def take_move_mean(self,loss,filter_array,mode):
-        mean_range = np.ones(filter_array) / filter_array
-        move_mean_x = np.convolve(loss,mean_range,mode=mode)[:500]
-        return move_mean_x
+    
+    def show_loss_gradient(self,d_loss):
+        # d_loss = take_gradient(take_move_mean(self.loss_per_batch))
+        # d_loss = self.take_gradient(self.loss_per_batch)
+        plt.plot(range(self.affect_length,len(d_loss)+self.affect_length),d_loss,color="blue",label="{0}~{1} (epochs={2})".format(self.before_a,self.after_a,self.epochs))
+        plt.xlabel("t")
+        plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
+        plt.ylabel("d_loss")
 
 
 def execute_all(target_map,model,neuron_num,num_layers,activation,batch_size,affect_length,epochs,before_a,after_a,learning_rate=0.001):
@@ -294,19 +312,30 @@ def execute_all(target_map,model,neuron_num,num_layers,activation,batch_size,aff
     plt.rcParams["font.size"] = 37
     # plt.rcParams["font.size"] = 24
     # fig = plt.figure(figsize=(20.0,12.0/0.96))
-    graph = Show_graph(x,before_a,after_a,answers,preds_per_batch,loss_per_batch,epochs,affect_length)
-    graph.show_raw(target_map)
+    # graph = Show_graph(x,before_a,after_a,answers,preds_per_batch,loss_per_batch,epochs,affect_length)
+    # graph.show_raw(target_map)
     # graph.show_compare_raw_preds()
     # graph.show_loss_per_batch()
     # graph.show_move_mean_loss_per_batch()
-    plt.tight_layout()
+    # graph.show_loss_gradient()
+    # plt.tight_layout()
 
     # dir_name = "{}/BRNN/learning_rate{}/affect_length{}/neuron{}/num_layers{}/activation_{}".format(target_map,learning_rate,affect_length,neuron_num,num_layers,activation)
     # os.makedirs(dir_name,exist_ok=True)
     # fig.savefig("{}/prediction_accuracy{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
-    fig.savefig("test_dir/raw_logistic{}to{}_{}epochs.png".format(before_a,after_a,epochs))
+    # fig.savefig("test_dir/raw_henon{}to{}_{}epochs.png".format(before_a,after_a,epochs))
     # fig.savefig("{}/raw_data{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
     # plt.show()
+    move_mean = take_move_mean(loss_per_batch)
+    d_loss = take_gradient(loss_per_batch)
+    d_move_mean_loss = take_gradient(move_mean)
+
+    output_csv(loss_per_batch,"loss_per_batch")
+    output_csv(move_mean,"move_mean")
+    output_csv(d_loss,"d_loss")
+    output_csv(d_move_mean_loss,"d_move_mean_loss")
+
+
 
 if __name__ == '__main__':
     np.random.seed(123)
@@ -316,12 +345,12 @@ if __name__ == '__main__':
 
     # affect_length = 10
     batch_size = 1
-    epochs = 1
+    epochs = 1000
 
 
     # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
-    params = [3.7]
-    # params = [1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
+    # params = [3.7]
+    params = [1.00,1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
     # params = [1.35,1.36,1.37,1.38,1.39,1.40]
     # params = [1.35]
     # params = [1.00]
@@ -339,5 +368,5 @@ if __name__ == '__main__':
                 for num_layers in num_layers_set:
                     model = RNN(affect_length,neuron_num,num_layers=num_layers,activation='tanh',bidirectional=True).to(device)
                     fig = plt.figure(figsize=(16.0,8.0/0.96))
-                    # execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.4,learning_rate=0.001)
-                    execute_all("logistic",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,4.0,learning_rate=0.001)
+                    execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.4,learning_rate=0.001)
+                    # execute_all("logistic",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,4.0,learning_rate=0.001)
