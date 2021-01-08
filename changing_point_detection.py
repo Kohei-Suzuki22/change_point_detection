@@ -238,7 +238,8 @@ def take_move_mean(loss,filter_array=10,mode="full"):
     return move_mean_x
 
 def take_gradient(loss):
-    d_loss = np.ediff1d(loss,to_begin=0)
+    # d_loss = np.ediff1d(loss,to_begin=0)
+    d_loss = np.ediff1d(loss)
     return d_loss
 
 def output_csv(target_array_data,file_name):
@@ -303,6 +304,39 @@ class Show_graph():
         plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
         plt.ylabel("d_loss")
 
+    def make_color_graph_zoomup(self,loss):
+        cmap = ListedColormap(['r','b'])
+        # ipdb.set_trace()
+        x = range(self.affect_length,len(loss)+self.affect_length)
+        # x = np.arange(len(loss))
+        points = np.array([x,loss]).T.reshape(-1,1,2)
+        segments = np.concatenate([points[:-1],points[1:]],axis=1)
+        label = np.where(loss >= 0, 0, 1)
+        lc = LineCollection(segments, cmap=cmap)
+        lc.set_array(np.array(label))
+        ax =  plt.subplot()
+        ax.add_collection(lc)
+        ax.set_xlim([230,270])
+        # plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
+        plt.xticks([230,240,250,260,270])
+        ax.set_ylim([loss.min(),loss.max()])
+        ax.grid(True)
+    
+    def make_color_graph(self,loss):
+        cmap = ListedColormap(['r','b'])
+        x = range(self.affect_length,len(loss)+self.affect_length)
+        points = np.array([x,loss]).T.reshape(-1,1,2)
+        segments = np.concatenate([points[:-1],points[1:]],axis=1)
+        label = np.where(loss >= 0, 0, 1)
+        lc = LineCollection(segments, cmap=cmap)
+        lc.set_array(np.array(label))
+        ax =  plt.subplot()
+        ax.add_collection(lc)
+        ax.set_xlim([0,500])
+        plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
+        ax.set_ylim([-0.0001,0.0001])
+        ax.grid(True)
+
 
 def execute_all(target_map,model,neuron_num,num_layers,activation,batch_size,affect_length,epochs,before_a,after_a,learning_rate=0.001):
     criterion = nn.MSELoss(reduction='mean')    # 損失関数: 平均二乗誤差
@@ -312,28 +346,34 @@ def execute_all(target_map,model,neuron_num,num_layers,activation,batch_size,aff
     plt.rcParams["font.size"] = 37
     # plt.rcParams["font.size"] = 24
     # fig = plt.figure(figsize=(20.0,12.0/0.96))
-    # graph = Show_graph(x,before_a,after_a,answers,preds_per_batch,loss_per_batch,epochs,affect_length)
+    graph = Show_graph(x,before_a,after_a,answers,preds_per_batch,loss_per_batch,epochs,affect_length)
     # graph.show_raw(target_map)
     # graph.show_compare_raw_preds()
     # graph.show_loss_per_batch()
     # graph.show_move_mean_loss_per_batch()
     # graph.show_loss_gradient()
-    # plt.tight_layout()
-
-    # dir_name = "{}/BRNN/learning_rate{}/affect_length{}/neuron{}/num_layers{}/activation_{}".format(target_map,learning_rate,affect_length,neuron_num,num_layers,activation)
-    # os.makedirs(dir_name,exist_ok=True)
-    # fig.savefig("{}/prediction_accuracy{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
-    # fig.savefig("test_dir/raw_henon{}to{}_{}epochs.png".format(before_a,after_a,epochs))
-    # fig.savefig("{}/raw_data{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
-    # plt.show()
+    plt.tight_layout()
     move_mean = take_move_mean(loss_per_batch)
     d_loss = take_gradient(loss_per_batch)
     d_move_mean_loss = take_gradient(move_mean)
+    graph.make_color_graph(d_move_mean_loss)
+    # dir_name = "{}/BRNN/learning_rate{}/affect_length{}/neuron{}/num_layers{}/activation_{}".format(target_map,learning_rate,affect_length,neuron_num,num_layers,activation)
+    dir_name = "num_data/{}".format(target_map)
+    os.makedirs(dir_name,exist_ok=True)
+    # fig.savefig("{}/prediction_accuracy{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
+    # fig.savefig("test_dir/raw_henon{}to{}_{}epochs.png".format(before_a,after_a,epochs))
+    # fig.savefig("{}/raw_data{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
+    fig.savefig("{}/y_zoomup/d_move_mean_loss{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
+    # graph.make_color_graph_zoomup(d_move_mean_loss)
+    # fig.savefig("{}/d_move_mean_loss{}to{}_{}epochs_zoomup.png".format(dir_name,before_a,after_a,epochs))
 
-    output_csv(loss_per_batch,"loss_per_batch")
-    output_csv(move_mean,"move_mean")
-    output_csv(d_loss,"d_loss")
-    output_csv(d_move_mean_loss,"d_move_mean_loss")
+    # plt.show()
+    # ipdb.set_trace()
+
+    # output_csv(loss_per_batch,"loss_per_batch")
+    # output_csv(move_mean,"move_mean")
+    # output_csv(d_loss,"d_loss")
+    # output_csv(d_move_mean_loss,"d_move_mean_loss")
 
 
 
@@ -348,12 +388,15 @@ if __name__ == '__main__':
     epochs = 1000
 
 
-    # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]
-    # params = [3.7]
-    params = [1.00,1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
+    # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]x
+    # params = [3.70,3.95]
+    # params = [1.00,1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
+    # params = [1.01,1.02,1.03,1.04,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
+    params = np.arange(1.00,1.40,0.01)
+
     # params = [1.35,1.36,1.37,1.38,1.39,1.40]
     # params = [1.35]
-    # params = [1.00]
+    # params = [1.20]
 
     # neuron_nums = [2,4,8,16]
     neuron_nums = [8]
@@ -368,5 +411,5 @@ if __name__ == '__main__':
                 for num_layers in num_layers_set:
                     model = RNN(affect_length,neuron_num,num_layers=num_layers,activation='tanh',bidirectional=True).to(device)
                     fig = plt.figure(figsize=(16.0,8.0/0.96))
-                    execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.4,learning_rate=0.001)
+                    execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.40,learning_rate=0.001)
                     # execute_all("logistic",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,4.0,learning_rate=0.001)
