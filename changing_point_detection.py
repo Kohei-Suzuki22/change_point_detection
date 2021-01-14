@@ -83,13 +83,17 @@ class GRU(RNN_parent):
 
 
 class MLP(nn.Module):
-    def __init__(self, input_dim, hidden_dim,num_layers=1):
+    def __init__(self, input_dim, hidden_dim):
         super().__init__()
         self.l1 = nn.Linear(input_dim,hidden_dim)
         self.a1 = nn.Tanh()
-        self.l2 = nn.Linear(hidden_dim,1)
+        self.l2 = nn.Linear(hidden_dim,hidden_dim)
+        self.a2 = nn.Tanh()
+        self.l3 = nn.Linear(hidden_dim,1)
 
-        self.layers = [self.l1, self.a1, self.l2]
+
+
+        self.layers = [self.l1, self.a1, self.l2,self.a2,self.l3]
 
     def forward(self, x,batch_size,affect_length):
         x = x.reshape(batch_size,-1,affect_length)
@@ -279,7 +283,7 @@ class Show_graph():
         plt.plot(range(self.affect_length,len(self.preds)+self.affect_length),self.preds,linewidth=0.6,color="red",label="pred")
 
     def show_loss_per_batch(self):
-        # plt.subplot(3,1,2)
+        plt.subplot(3,1,2)
         plt.plot(range(self.affect_length,len(self.loss_per_batch)+self.affect_length),self.loss_per_batch,color="blue",label="{0}~{1} (epochs={2})".format(self.before_a,self.after_a,self.epochs))
         plt.xlabel("t")
         plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
@@ -290,7 +294,7 @@ class Show_graph():
 
     def show_move_mean_loss_per_batch(self,mean_range=10):
         plt.subplot(3,1,3)
-        move_mean_value = self.take_move_mean(self.loss_per_batch,mean_range,"full")
+        move_mean_value = take_move_mean(self.loss_per_batch,mean_range,"full")
         plt.plot(range(self.affect_length,len(move_mean_value)+self.affect_length),move_mean_value,color="blue",label="{0}~{1} (epochs={2})".format(self.before_a,self.after_a,self.epochs))
         plt.xlabel("t")
         plt.xticks([self.affect_length,50,100,150,200,250,300,350,400,450,500])
@@ -348,22 +352,22 @@ def execute_all(target_map,model,neuron_num,num_layers,activation,batch_size,aff
     # fig = plt.figure(figsize=(20.0,12.0/0.96))
     graph = Show_graph(x,before_a,after_a,answers,preds_per_batch,loss_per_batch,epochs,affect_length)
     # graph.show_raw(target_map)
-    # graph.show_compare_raw_preds()
-    # graph.show_loss_per_batch()
-    # graph.show_move_mean_loss_per_batch()
+    graph.show_compare_raw_preds()
+    graph.show_loss_per_batch()
+    graph.show_move_mean_loss_per_batch()
     # graph.show_loss_gradient()
     plt.tight_layout()
-    move_mean = take_move_mean(loss_per_batch)
-    d_loss = take_gradient(loss_per_batch)
-    d_move_mean_loss = take_gradient(move_mean)
-    graph.make_color_graph(d_move_mean_loss)
-    # dir_name = "{}/BRNN/learning_rate{}/affect_length{}/neuron{}/num_layers{}/activation_{}".format(target_map,learning_rate,affect_length,neuron_num,num_layers,activation)
-    dir_name = "num_data/{}".format(target_map)
+    # move_mean = take_move_mean(loss_per_batch)
+    # d_loss = take_gradient(loss_per_batch)
+    # d_move_mean_loss = take_gradient(move_mean)
+    # graph.make_color_graph(d_move_mean_loss)
+    dir_name = "picture_for_graduate_paper/{}/BRNN/affect_length{}/neuron{}/num_layers{}/activation_{}".format(target_map,affect_length,neuron_num,num_layers,activation)
+    # dir_name = "num_data/{}".format(target_map)
     os.makedirs(dir_name,exist_ok=True)
-    # fig.savefig("{}/prediction_accuracy{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
+    fig.savefig("{}/{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
     # fig.savefig("test_dir/raw_henon{}to{}_{}epochs.png".format(before_a,after_a,epochs))
     # fig.savefig("{}/raw_data{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
-    fig.savefig("{}/y_zoomup/d_move_mean_loss{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
+    # fig.savefig("{}/y_zoomup/d_move_mean_loss{}to{}_{}epochs.png".format(dir_name,before_a,after_a,epochs))
     # graph.make_color_graph_zoomup(d_move_mean_loss)
     # fig.savefig("{}/d_move_mean_loss{}to{}_{}epochs_zoomup.png".format(dir_name,before_a,after_a,epochs))
 
@@ -385,31 +389,39 @@ if __name__ == '__main__':
 
     # affect_length = 10
     batch_size = 1
-    epochs = 1000
+    epochs = 10000
 
 
-    # params = [3.95,3.99,3.9,3.85,3.8,3.75,3.7]x
-    # params = [3.70,3.95]
-    # params = [1.00,1.05,1.10,1.15,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
+    # params = [3.95,3.85,3.75]
+    params = [3.80]
+
+    # params = [3.91,3.92,3.93,3.94,3.96,3.97,3.98,3.99]
+
+    # params = [3.85]
+    # params = [1.15,1.25,1.35]
+    # params = [1.31,1.32,1.33,1.34,1.36,1.37,1.38,1.39]
     # params = [1.01,1.02,1.03,1.04,1.20,1.25,1.30,1.35,1.36,1.37,1.38,1.39]
-    params = np.arange(1.00,1.40,0.01)
+    # params = np.arange(1.00,1.40,0.01)
 
     # params = [1.35,1.36,1.37,1.38,1.39,1.40]
     # params = [1.35]
     # params = [1.20]
 
-    # neuron_nums = [2,4,8,16]
-    neuron_nums = [8]
-    # num_layers_set = [1,2,3]
+    # neuron_nums = [1,2,4,8,16,32]
+    neuron_nums = [4]
+    # num_layers_set = [1,2,3,4,5,6]
     num_layers_set = [2]
-    affect_length_set = [2]
-    # affect_length_set = [1,2,3,4,5]
+    # affect_length_set = [2]
+    affect_length_set = [1]
     for affect_length in affect_length_set:
         for param in params:
             # plt.rcParams["font.size"] = 5
             for neuron_num in neuron_nums:
                 for num_layers in num_layers_set:
                     model = RNN(affect_length,neuron_num,num_layers=num_layers,activation='tanh',bidirectional=True).to(device)
+                    # model = RNN(affect_length,neuron_num,num_layers=num_layers,activation='tanh',bidirectional=False).to(device)
+                    # model = MLP(affect_length,neuron_num).to(device)
+
                     fig = plt.figure(figsize=(16.0,8.0/0.96))
-                    execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.40,learning_rate=0.001)
                     # execute_all("logistic",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,4.0,learning_rate=0.001)
+                    execute_all("henon",model,neuron_num,num_layers,'tanh',batch_size,affect_length,epochs,param,1.40,learning_rate=0.001)
